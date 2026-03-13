@@ -45,7 +45,7 @@ export async function initDB(): Promise<void> {
 
   await db.query(`
     CREATE TABLE IF NOT EXISTS leaderboard (
-      username VARCHAR(255) PRIMARY KEY,
+      username VARCHAR(120) PRIMARY KEY,
       avatar TEXT NULL,
       score INT NOT NULL DEFAULT 0,
       games_played INT NOT NULL DEFAULT 0,
@@ -72,7 +72,7 @@ export async function initDB(): Promise<void> {
   await db.query(`
     CREATE TABLE IF NOT EXISTS themes (
       id VARCHAR(64) PRIMARY KEY,
-      name VARCHAR(255) NOT NULL UNIQUE
+      name VARCHAR(120) NOT NULL UNIQUE
     )
   `);
 
