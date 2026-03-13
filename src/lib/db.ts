@@ -52,7 +52,7 @@ export async function initDB() {
 
       await pool.query(`
         CREATE TABLE IF NOT EXISTS users (
-          username VARCHAR(255) PRIMARY KEY,
+          username VARCHAR(191) PRIMARY KEY,
           avatar VARCHAR(255),
           score INT NOT NULL DEFAULT 0,
           games_played INT NOT NULL DEFAULT 0,
@@ -70,15 +70,15 @@ export async function initDB() {
 
       await pool.query(`
         CREATE TABLE IF NOT EXISTS categories (
-          id VARCHAR(255) PRIMARY KEY,
+          id VARCHAR(191) PRIMARY KEY,
           name VARCHAR(255) NOT NULL
         )
       `);
 
       await pool.query(`
         CREATE TABLE IF NOT EXISTS questions (
-          id VARCHAR(255) PRIMARY KEY,
-          category_id VARCHAR(255) NOT NULL,
+          id VARCHAR(191) PRIMARY KEY,
+          category_id VARCHAR(191) NOT NULL,
           text TEXT NOT NULL,
           options JSON NOT NULL,
           correctOptionIndex INT NOT NULL,
@@ -91,7 +91,7 @@ export async function initDB() {
 
       await pool.query(`
         CREATE TABLE IF NOT EXISTS badges (
-          id VARCHAR(255) PRIMARY KEY,
+          id VARCHAR(191) PRIMARY KEY,
           name VARCHAR(255) NOT NULL,
           description TEXT,
           icon VARCHAR(255)
@@ -100,8 +100,8 @@ export async function initDB() {
 
       await pool.query(`
         CREATE TABLE IF NOT EXISTS user_badges (
-          username VARCHAR(255),
-          badge_id VARCHAR(255),
+          username VARCHAR(120),
+          badge_id VARCHAR(120),
           level INT NOT NULL DEFAULT 1,
           xp INT NOT NULL DEFAULT 0,
           earned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -113,12 +113,12 @@ export async function initDB() {
 
       await pool.query(`
         CREATE TABLE IF NOT EXISTS submit_questions (
-          id VARCHAR(255) PRIMARY KEY,
-          category_id VARCHAR(255) NOT NULL,
+          id VARCHAR(191) PRIMARY KEY,
+          category_id VARCHAR(191) NOT NULL,
           text TEXT NOT NULL,
           options JSON NOT NULL,
           correctOptionIndex INT NOT NULL,
-          author VARCHAR(255) NOT NULL,
+          author VARCHAR(191) NOT NULL,
           status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
@@ -127,7 +127,7 @@ export async function initDB() {
 
       await pool.query(`
         CREATE TABLE IF NOT EXISTS shop_items (
-          id VARCHAR(255) PRIMARY KEY,
+          id VARCHAR(191) PRIMARY KEY,
           name VARCHAR(255) NOT NULL,
           description TEXT,
           price INT NOT NULL,
@@ -138,9 +138,9 @@ export async function initDB() {
 
       await pool.query(`
         CREATE TABLE IF NOT EXISTS auction_items (
-          id VARCHAR(255) PRIMARY KEY,
-          seller VARCHAR(255) NOT NULL,
-          item_id VARCHAR(255) NOT NULL,
+          id VARCHAR(191) PRIMARY KEY,
+          seller VARCHAR(191) NOT NULL,
+          item_id VARCHAR(191) NOT NULL,
           price INT NOT NULL,
           currency ENUM('coins', 'brainCoins') DEFAULT 'coins',
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -354,6 +354,7 @@ async function seedData() {
       await addTheme('general', 'Culture Générale');
       await addQuestion({
         id: 'q1',
+        category_id: 'general',
         text: 'Quelle est la capitale de la France ?',
         options: ['Londres', 'Paris', 'Berlin', 'Madrid'],
         correctOptionIndex: 1,
@@ -404,6 +405,7 @@ export async function getThemesWithQuestions(): Promise<Record<string, Theme>> {
       if (result[q.category_id]) {
         result[q.category_id].questions.push({
           id: q.id,
+          category_id: q.category_id,
           text: q.text,
           options: typeof q.options === 'string' ? JSON.parse(q.options) : q.options,
           correctOptionIndex: q.correctOptionIndex,
