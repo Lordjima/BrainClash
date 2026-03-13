@@ -5,9 +5,11 @@ import { Server } from 'socket.io';
 import path from 'path';
 import dotenv from 'dotenv';
 
+// Load environment variables from .env file (for local development)
+dotenv.config();
 
 import type { Question, Player, RoomState, GlobalLeaderboardEntry, SubmittedQuestion, Theme } from './src/types';
-import { initDB, getLeaderboard, getPendingQuestions, addSubmittedQuestion, updateSubmittedQuestionStatus, getThemesWithQuestions, addTheme, addQuestion, getUserProfile, updateUserProfile, buyItem, useItem, toggleSubStatus, batchUpdateUserProfiles, getAllBadges, getShopItems, awardBadgeXp, getAuctionItems, openLootBox, listItemForAuction } from './src/lib/db';
+import { initDB, getLeaderboard, getPendingQuestions, addSubmittedQuestion, updateSubmittedQuestionStatus, getThemesWithQuestions, addTheme, addQuestion, getUserProfile, updateUserProfile, buyItem, useItem, toggleSubStatus, batchUpdateUserProfiles, getAllBadges, getShopItems, awardBadgeXp, getAuctionItems, openLootBox, listItemForAuction, addBrainCoins } from './src/lib/db';
 
 let globalLeaderboard: GlobalLeaderboardEntry[] = [];
 let pendingQuestionsCache: SubmittedQuestion[] | null = null;
@@ -690,6 +692,16 @@ async function startServer() {
         socket.emit('auction_list_success');
       } else {
         socket.emit('error', 'Erreur lors de la mise en vente');
+      }
+    });
+
+    socket.on('add_brain_coins', async ({ username, amount }) => {
+      const success = await addBrainCoins(username, amount);
+      if (success) {
+        const profile = await getUserProfile(username);
+        socket.emit('profile_data', profile);
+      } else {
+        socket.emit('error', 'Erreur lors de l\'ajout des BrainCoins');
       }
     });
 

@@ -3,14 +3,17 @@ import { Link } from 'react-router-dom';
 import { Home, LogOut, User, Coins, Shield, EyeOff, RefreshCcw, Star, Award, Zap, Heart, TrendingUp, ShoppingBag } from 'lucide-react';
 import Logo from './Logo';
 import { socket } from '../lib/socket';
+import { useData } from '../DataContext';
 import type { GlobalLeaderboardEntry, ShopItem, Badge } from '../types';
 import * as LucideIcons from 'lucide-react';
 
 export default function Profile() {
+  const { leaderboard, shopItems: allShopItems, userProfile } = useData();
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<GlobalLeaderboardEntry | null>(null);
   const [allBadges, setAllBadges] = useState<Badge[]>([]);
-  const [shopItems, setShopItems] = useState<ShopItem[]>([]);
+  const [showPayPal, setShowPayPal] = useState(false);
+  const [purchaseAmount, setPurchaseAmount] = useState(5);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('twitch_user');
@@ -29,12 +32,9 @@ export default function Profile() {
       setProfile(data);
     });
 
-    socket.on('bootstrap_data', (data: { allBadges: Badge[], shopItems: ShopItem[] }) => {
+    socket.on('bootstrap_data', (data: { allBadges: Badge[] }) => {
       if (data.allBadges) {
         setAllBadges(data.allBadges);
-      }
-      if (data.shopItems) {
-        setShopItems(data.shopItems);
       }
     });
 
@@ -52,12 +52,6 @@ export default function Profile() {
     setProfile(null);
   };
 
-  const handleBuy = (itemId: string, price: number) => {
-    if (user && profile && profile.coins >= price) {
-      socket.emit('buy_item', { username: user.display_name, itemId, cost: price });
-    }
-  };
-
   const handleToggleSub = () => {
     if (user) {
       socket.emit('toggle_sub', user.display_name);
@@ -69,13 +63,21 @@ export default function Profile() {
     return <Icon className={size} />;
   };
 
+  const handlePurchaseSuccess = () => {
+    if (user) {
+      socket.emit('add_brain_coins', { username: user.display_name, amount: purchaseAmount });
+      setShowPayPal(false);
+      alert(`Félicitations ! Vous avez reçu ${purchaseAmount} BrainCoins.`);
+    }
+  };
+
   return (
-    <div className="h-full px-6 pb-6 bg-transparent overflow-hidden">
-      <div className="max-w-7xl mx-auto h-full grid grid-cols-1 lg:grid-cols-12 gap-8 overflow-y-auto lg:overflow-hidden custom-scrollbar py-4">
+    <div className="h-full px-6 pb-6 bg-transparent overflow-y-auto custom-scrollbar">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 py-4">
         
         {/* Left Column: Stats & Profile */}
-        <div className="lg:col-span-4 flex flex-col">
-          <div className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-8 text-center relative overflow-hidden flex-1 flex flex-col justify-center">
+        <div className="lg:col-span-4">
+          <div className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-8 text-center relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-purple-600/10 blur-[60px] -mr-16 -mt-16" />
             
             {user ? (
@@ -126,12 +128,19 @@ export default function Profile() {
                     </div>
                     <div className="text-xl font-black font-mono">{profile?.coins || 0}</div>
                   </div>
-                  <div className="bg-zinc-950/50 border border-zinc-800 rounded-2xl p-3 text-left">
+                  <div className="bg-zinc-950/50 border border-zinc-800 rounded-2xl p-3 text-left relative group">
                     <div className="flex items-center gap-2 text-fuchsia-400 mb-1">
                       <div className="w-4 h-4 bg-fuchsia-500 rounded-full flex items-center justify-center text-[8px] font-black text-white">B</div>
                       <span className="text-[10px] font-black uppercase tracking-widest">BrainCoins</span>
                     </div>
                     <div className="text-xl font-black font-mono">{profile?.brainCoins || 0}</div>
+                    <button 
+                      onClick={() => setShowPayPal(true)}
+                      className="absolute -top-2 -right-2 w-6 h-6 bg-fuchsia-600 rounded-full flex items-center justify-center hover:scale-110 transition-transform shadow-lg shadow-fuchsia-600/50"
+                      title="Acheter des BrainCoins"
+                    >
+                      <LucideIcons.Plus className="w-4 h-4 text-white" />
+                    </button>
                   </div>
                 </div>
 
@@ -154,8 +163,8 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Right Column: Inventory & Shop */}
-        <div className="lg:col-span-8 flex flex-col gap-8 overflow-y-auto custom-scrollbar pr-2">
+        {/* Right Column: Badges & Inventory */}
+        <div className="lg:col-span-8 flex flex-col gap-8">
           {/* Badges Section */}
           <div className="bg-zinc-900/30 border border-zinc-800/50 rounded-3xl p-8">
             <h2 className="text-xl font-black mb-6 flex items-center gap-2">
@@ -199,59 +208,118 @@ export default function Profile() {
             )}
           </div>
 
-          {/* Shop Section */}
+          {/* Inventory Section */}
           <div className="bg-zinc-900/30 border border-zinc-800/50 rounded-3xl p-8">
             <h2 className="text-xl font-black mb-6 flex items-center gap-2">
-              <ShoppingBag className="w-5 h-5 text-fuchsia-500" />
-              BOUTIQUE D'OBJETS
+              <LucideIcons.Package className="w-5 h-5 text-blue-500" />
+              MON INVENTAIRE
             </h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {shopItems.map(item => {
-                const price = profile?.is_sub ? Math.floor(item.price * 0.8) : item.price;
-                const canAfford = (profile?.coins || 0) >= price;
-                const inventoryCount = profile?.inventory.filter(id => id === item.id).length || 0;
-
-                return (
-                  <div key={item.id} className="bg-zinc-950/50 border border-zinc-800 rounded-2xl p-4 flex gap-4 group">
-                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shrink-0 ${
-                      item.type === 'attack' ? 'bg-red-500/10 text-red-500' : 'bg-blue-500/10 text-blue-500'
-                    }`}>
-                      {getIcon(item.icon, "w-8 h-8")}
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-start mb-1">
-                        <h3 className="font-black text-sm">{item.name}</h3>
-                        <div className="flex items-center gap-1 text-amber-500 font-mono text-xs font-bold">
-                          <Coins className="w-3 h-3" />
-                          {price}
-                        </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {profile?.inventory && profile.inventory.length > 0 ? (
+                profile.inventory.map((itemId, idx) => {
+                  const item = allShopItems.find(si => si.id === itemId);
+                  return (
+                    <div key={`${itemId}-${idx}`} className="bg-zinc-950/50 border border-zinc-800 rounded-2xl p-4 flex flex-col items-center text-center group transition-all">
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 ${
+                        item?.type === 'attack' ? 'bg-red-500/10 text-red-500' : 'bg-blue-500/10 text-blue-500'
+                      }`}>
+                        {item ? getIcon(item.icon, "w-6 h-6") : <LucideIcons.Package className="w-6 h-6" />}
                       </div>
-                      <p className="text-[10px] text-zinc-500 mb-3 line-clamp-2">{item.description}</p>
-                      
-                      <div className="flex items-center justify-between">
-                        <span className="text-[9px] font-black text-zinc-600 uppercase">En stock: {inventoryCount}</span>
-                        <button
-                          onClick={() => handleBuy(item.id, price)}
-                          disabled={!canAfford}
-                          className={`px-4 py-1.5 rounded-lg font-black text-[10px] transition-all ${
-                            canAfford 
-                              ? 'bg-white text-black hover:bg-zinc-200' 
-                              : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
-                          }`}
-                        >
-                          ACHETER
-                        </button>
-                      </div>
+                      <div className="text-[10px] font-black text-white uppercase truncate w-full">{item?.name || itemId}</div>
+                      <div className="text-[8px] font-bold text-zinc-600 mt-1 uppercase">{item?.type || 'Objet'}</div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              ) : (
+                <div className="col-span-full py-12 text-center bg-zinc-950/30 rounded-2xl border border-dashed border-zinc-800">
+                  <p className="text-zinc-600 font-bold">Votre inventaire est vide.</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="mt-8 flex justify-center">
+              <Link 
+                to="/auction-house" 
+                className="bg-zinc-800 hover:bg-zinc-700 text-white px-6 py-2 rounded-xl font-black text-xs transition-all flex items-center gap-2"
+              >
+                <ShoppingBag className="w-4 h-4" />
+                ALLER AU MARCHÉ
+              </Link>
             </div>
           </div>
         </div>
       </div>
+
+      {/* PayPal Modal */}
+      {showPayPal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-[32px] p-8 space-y-6 shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-fuchsia-600/10 blur-[60px] -mr-16 -mt-16" />
+            
+            <div className="flex items-center justify-between relative">
+              <h2 className="text-2xl font-black italic uppercase tracking-tighter">Acheter des BrainCoins</h2>
+              <button onClick={() => setShowPayPal(false)} className="p-2 hover:bg-zinc-800 rounded-xl transition-colors">
+                <LucideIcons.X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="space-y-6 relative">
+              <div className="p-6 bg-zinc-950 rounded-2xl border border-zinc-800 text-center space-y-2">
+                <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Taux de conversion</div>
+                <div className="text-3xl font-black text-white">1 <span className="text-fuchsia-500">B</span> = 1.00 €</div>
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest ml-1">Quantité</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[5, 10, 20, 50, 100].map(amount => (
+                    <button
+                      key={amount}
+                      onClick={() => setPurchaseAmount(amount)}
+                      className={`py-3 rounded-xl font-black transition-all ${
+                        purchaseAmount === amount 
+                          ? 'bg-fuchsia-600 text-white shadow-lg shadow-fuchsia-600/20' 
+                          : 'bg-zinc-800 text-zinc-500 hover:text-white'
+                      }`}
+                    >
+                      {amount} B
+                    </button>
+                  ))}
+                  <div className="bg-zinc-800 rounded-xl flex items-center px-3">
+                    <input 
+                      type="number" 
+                      value={purchaseAmount}
+                      onChange={(e) => setPurchaseAmount(Math.max(1, parseInt(e.target.value) || 0))}
+                      className="w-full bg-transparent text-center font-black outline-none text-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 bg-blue-500/5 border border-blue-500/20 rounded-2xl flex items-center justify-between">
+                <div className="text-sm font-bold text-zinc-400">Total à payer</div>
+                <div className="text-2xl font-black text-blue-400">{purchaseAmount.toFixed(2)} €</div>
+              </div>
+
+              {/* Mock PayPal Button */}
+              <button 
+                onClick={handlePurchaseSuccess}
+                className="w-full bg-[#0070ba] hover:bg-[#005ea6] text-white py-4 rounded-2xl font-black text-lg transition-all flex items-center justify-center gap-3 shadow-xl shadow-blue-500/10"
+              >
+                <div className="flex items-center font-serif italic font-bold text-xl">
+                  <span className="text-white">Pay</span>
+                  <span className="text-[#009cde]">Pal</span>
+                </div>
+              </button>
+              
+              <p className="text-[10px] text-zinc-600 text-center font-medium">
+                Paiement sécurisé via PayPal. Les BrainCoins seront ajoutés instantanément à votre compte.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

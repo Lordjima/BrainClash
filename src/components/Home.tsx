@@ -138,7 +138,7 @@ export default function Home() {
               {/* Top Left: Shop Button */}
               <div className="absolute top-4 left-4 md:top-6 md:left-6 flex items-center gap-4 z-20">
                 <button 
-                  onClick={() => setShowBag(true)}
+                  onClick={() => navigate('/auction-house?tab=shop')}
                   className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-zinc-950/50 border-2 border-amber-500/50 flex flex-col items-center justify-center hover:bg-zinc-800 transition-all group hover:scale-110 active:scale-95 shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:shadow-[0_0_30px_rgba(245,158,11,0.4)]"
                   title="Boutique"
                 >

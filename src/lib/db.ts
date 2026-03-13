@@ -883,3 +883,18 @@ export async function listItemForAuction(username: string, itemId: string, price
     return false;
   }
 }
+
+export async function addBrainCoins(username: string, amount: number): Promise<boolean> {
+  try {
+    const db = await getDb();
+    if (useMySQL) {
+      await (db as mysql.Pool).query('UPDATE users SET brainCoins = brainCoins + ? WHERE username = ?', [amount, username]);
+    } else {
+      (db as any).prepare('UPDATE users SET brainCoins = brainCoins + ? WHERE username = ?').run(amount, username);
+    }
+    return true;
+  } catch (error) {
+    console.error('Error adding brain coins:', error);
+    return false;
+  }
+}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ShoppingBag, Coins, Search, Filter, Tag, Clock, User, ArrowRight, Package, Star, X, Box, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { socket } from '../lib/socket';
@@ -8,7 +9,9 @@ import * as LucideIcons from 'lucide-react';
 
 export default function AuctionHouse() {
   const { userProfile, shopItems } = useData();
-  const [activeTab, setActiveTab] = useState<'market' | 'shop' | 'inventory'>('market');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = (searchParams.get('tab') as 'market' | 'shop' | 'inventory') || 'market';
+  const [activeTab, setActiveTab] = useState<'market' | 'shop' | 'inventory'>(initialTab);
   const [items, setItems] = useState<AuctionItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [listingItem, setListingItem] = useState<{ id: string, name: string } | null>(null);
@@ -97,55 +100,54 @@ export default function AuctionHouse() {
       <div className="max-w-7xl mx-auto h-full flex flex-col space-y-4 py-2">
         
         {/* Header & Tabs */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-zinc-800 pb-4">
-          <div className="space-y-4">
-            <div>
-              <h1 className="text-2xl font-black flex items-center gap-3">
-                <ShoppingBag className="w-8 h-8 text-fuchsia-500" />
-                MARCHÉ & BOUTIQUE
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-zinc-800 pb-4">
+          <div className="flex flex-col md:flex-row md:items-center gap-6">
+            <div className="flex items-center gap-2">
+              <ShoppingBag className="w-6 h-6 text-fuchsia-500" />
+              <h1 className="text-lg font-black uppercase tracking-tighter italic whitespace-nowrap">
+                Marché & Boutique
               </h1>
-              <p className="text-zinc-500 font-medium">Échangez, achetez et tentez votre chance.</p>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-1 bg-zinc-900/50 p-1 rounded-xl border border-zinc-800">
               <button 
                 onClick={() => setActiveTab('market')}
-                className={`px-4 py-2 rounded-2xl font-black text-sm transition-all flex items-center gap-2 ${
-                  activeTab === 'market' ? 'bg-white text-black' : 'bg-zinc-900/50 text-zinc-500 hover:text-white'
+                className={`px-3 py-1.5 rounded-lg font-black text-[10px] uppercase transition-all flex items-center gap-2 ${
+                  activeTab === 'market' ? 'bg-white text-black shadow-lg' : 'text-zinc-500 hover:text-white'
                 }`}
               >
-                <Tag className="w-4 h-4" />
-                HÔTEL DES VENTES
+                <Tag className="w-3 h-3" />
+                Hôtel des Ventes
               </button>
               <button 
                 onClick={() => setActiveTab('shop')}
-                className={`px-4 py-2 rounded-2xl font-black text-sm transition-all flex items-center gap-2 ${
-                  activeTab === 'shop' ? 'bg-white text-black' : 'bg-zinc-900/50 text-zinc-500 hover:text-white'
+                className={`px-3 py-1.5 rounded-lg font-black text-[10px] uppercase transition-all flex items-center gap-2 ${
+                  activeTab === 'shop' ? 'bg-white text-black shadow-lg' : 'text-zinc-500 hover:text-white'
                 }`}
               >
-                <Box className="w-4 h-4" />
-                BOUTIQUE D'OBJETS
+                <Box className="w-3 h-3" />
+                Boutique
               </button>
               <button 
                 onClick={() => setActiveTab('inventory')}
-                className={`px-4 py-2 rounded-2xl font-black text-sm transition-all flex items-center gap-2 ${
-                  activeTab === 'inventory' ? 'bg-white text-black' : 'bg-zinc-900/50 text-zinc-500 hover:text-white'
+                className={`px-3 py-1.5 rounded-lg font-black text-[10px] uppercase transition-all flex items-center gap-2 ${
+                  activeTab === 'inventory' ? 'bg-white text-black shadow-lg' : 'text-zinc-500 hover:text-white'
                 }`}
               >
-                <Package className="w-4 h-4" />
-                MON INVENTAIRE
+                <Package className="w-3 h-3" />
+                Inventaire
               </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl px-4 py-2 flex items-center gap-3">
-              <Coins className="w-5 h-5 text-amber-500" />
-              <span className="font-mono font-bold text-amber-500">{userProfile?.coins || 0}</span>
+          <div className="flex items-center gap-3">
+            <div className="bg-zinc-950/50 border border-zinc-800 rounded-xl px-3 py-1.5 flex items-center gap-2">
+              <Coins className="w-4 h-4 text-amber-500" />
+              <span className="font-mono font-bold text-amber-500 text-sm">{userProfile?.coins || 0}</span>
             </div>
-            <div className="flex items-center gap-2 bg-zinc-900/50 border border-zinc-800 rounded-2xl px-4 py-2">
-              <div className="w-5 h-5 bg-fuchsia-500 rounded-full flex items-center justify-center text-[10px] font-black text-white">B</div>
-              <span className="font-mono font-bold text-fuchsia-400">{userProfile?.brainCoins || 0}</span>
+            <div className="flex items-center gap-2 bg-zinc-950/50 border border-zinc-800 rounded-xl px-3 py-1.5">
+              <div className="w-4 h-4 bg-fuchsia-500 rounded-full flex items-center justify-center text-[8px] font-black text-white">B</div>
+              <span className="font-mono font-bold text-fuchsia-400 text-sm">{userProfile?.brainCoins || 0}</span>
             </div>
           </div>
         </div>

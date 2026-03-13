@@ -1,0 +1,5 @@
+{
+  "name": "Twitch Live Quiz",
+  "description": "Une application de quiz interactive pour les streams Twitch avec un Dashboard de contrôle et un Overlay pour OBS. Les viewers peuvent jouer directement dans le chat.",
+  "requestFramePermissions": []
+}
