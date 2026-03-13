@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LogIn, User, Heart, Star, Coins, ChevronDown, Shield, PlusCircle, Inbox, ShoppingBag } from 'lucide-react';
+import { ChevronDown, Coins, Inbox, LogIn, PlusCircle, ShoppingBag, Star, User } from 'lucide-react';
 import Logo from './Logo';
-import { socket } from '../lib/socket';
 import { useData } from '../DataContext';
 
 export default function Navbar() {
@@ -10,6 +9,7 @@ export default function Navbar() {
   const { userProfile } = useData();
   const [twitchUser, setTwitchUser] = useState<any>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -34,6 +34,7 @@ export default function Navbar() {
         const user = event.data.user;
         localStorage.setItem('twitch_user', JSON.stringify(user));
         setTwitchUser(user);
+        setIsAuthLoading(false);
       }
     };
 
@@ -47,23 +48,32 @@ export default function Navbar() {
   }, []);
 
   const handleTwitchLogin = async () => {
+    if (isAuthLoading) return;
+
+    setIsAuthLoading(true);
+
     try {
       const redirectUri = `${window.location.origin}/auth/twitch/callback`;
-      const response = await fetch(`/api/auth/twitch/url?redirect_uri=${encodeURIComponent(redirectUri)}`);
-      if (!response.ok) throw new Error('Failed to get auth URL');
+      const response = await fetch(`/api/auth/twitch/url?redirect_uri=${encodeURIComponent(redirectUri)}`, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        cache: 'no-store',
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to get auth URL (${response.status})`);
+      }
+
       const { url } = await response.json();
-      
-      const authWindow = window.open(
-        url,
-        'oauth_popup',
-        'width=600,height=700'
-      );
-      
+      const authWindow = window.open(url, 'oauth_popup', 'width=600,height=700');
+
       if (!authWindow) {
+        setIsAuthLoading(false);
         alert('Veuillez autoriser les popups pour vous connecter avec Twitch.');
       }
     } catch (err) {
       console.error('Twitch login error:', err);
+      setIsAuthLoading(false);
       alert('Erreur lors de la connexion Twitch.');
     }
   };
@@ -84,10 +94,7 @@ export default function Navbar() {
                 <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
                 <span className="text-xs font-bold font-mono">LVL {userProfile.level}</span>
                 <div className="w-20 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-yellow-500 transition-all duration-500" 
-                    style={{ width: `${(userProfile.xp % 1000) / 10}%` }}
-                  />
+                  <div className="h-full bg-yellow-500 transition-all duration-500" style={{ width: `${(userProfile.xp % 1000) / 10}%` }} />
                 </div>
               </div>
 
@@ -112,7 +119,7 @@ export default function Navbar() {
 
           {twitchUser ? (
             <div className="relative" ref={menuRef}>
-              <button 
+              <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
                 className="flex items-center gap-3 bg-zinc-900 hover:bg-zinc-800 px-3 py-1.5 rounded-full border border-zinc-800 transition-colors"
               >
@@ -132,38 +139,25 @@ export default function Navbar() {
                     <div className="font-bold text-sm truncate">{twitchUser.display_name}</div>
                     <div className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold">Joueur de Quiz</div>
                   </div>
-                  
-                  <Link 
-                    to="/profile" 
-                    onClick={() => setIsMenuOpen(false)}
-                    className="flex items-center gap-3 px-4 py-2 text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
-                  >
+
+                  <Link to="/profile" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-4 py-2 text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors">
                     <User className="w-4 h-4" /> Mon Profil
                   </Link>
 
                   <div className="border-t border-zinc-800 my-2" />
-                  
                   <div className="px-4 py-1 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Host & Admin</div>
-                  
-                  <Link 
-                    to="/create" 
-                    onClick={() => setIsMenuOpen(false)}
-                    className="flex items-center gap-3 px-4 py-2 text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
-                  >
+
+                  <Link to="/create" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-4 py-2 text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors">
                     <PlusCircle className="w-4 h-4" /> Créer un salon
                   </Link>
 
                   {isAdmin && (
-                    <Link 
-                      to="/review" 
-                      onClick={() => setIsMenuOpen(false)}
-                      className="flex items-center gap-3 px-4 py-2 text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
-                    >
+                    <Link to="/review-questions" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-4 py-2 text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors">
                       <Inbox className="w-4 h-4" /> Vérifier questions
                     </Link>
                   )}
 
-                  <button 
+                  <button
                     onClick={() => {
                       localStorage.removeItem('twitch_user');
                       setTwitchUser(null);
@@ -178,9 +172,13 @@ export default function Navbar() {
               )}
             </div>
           ) : (
-            <button onClick={handleTwitchLogin} className="flex items-center gap-2 bg-[#9146FF] hover:bg-[#772CE8] px-4 py-2 rounded-full font-medium text-sm transition-colors">
+            <button
+              onClick={handleTwitchLogin}
+              disabled={isAuthLoading}
+              className="flex items-center gap-2 bg-[#9146FF] hover:bg-[#772CE8] disabled:opacity-70 disabled:cursor-not-allowed px-4 py-2 rounded-full font-medium text-sm transition-colors"
+            >
               <LogIn className="w-4 h-4" />
-              Connexion Twitch
+              {isAuthLoading ? 'Connexion...' : 'Connexion Twitch'}
             </button>
           )}
         </div>

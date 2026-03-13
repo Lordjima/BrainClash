@@ -38,7 +38,6 @@ export default function Profile() {
       }
     });
 
-    socket.emit('request_bootstrap_data');
 
     return () => {
       socket.off('profile_data');

@@ -59,7 +59,6 @@ export default function Home() {
       }
     });
 
-    socket.emit('request_bootstrap_data');
 
     return () => {
       clearTimeout(timer);
