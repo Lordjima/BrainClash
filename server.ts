@@ -738,12 +738,7 @@ async function startServer() {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
-
-  const PORT = process.env.PORT || 3000;
-  httpServer.listen(Number(PORT), "0.0.0.0", async () => {
-    console.log(`Server running on port ${PORT}`);
-    
-    // Initialize Database after server is listening
+// Initialize Database after server is listening
     try {
       await initDB();
       // Load initial data
@@ -752,6 +747,11 @@ async function startServer() {
     } catch (err) {
       console.error('❌ Error during post-startup initialization:', err);
     }
+  const PORT = process.env.PORT || 3000;
+  httpServer.listen(Number(PORT), "0.0.0.0", async () => {
+    console.log(`Server running on port ${PORT}`);
+    
+    
   });
 }
 

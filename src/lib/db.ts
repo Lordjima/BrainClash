@@ -166,11 +166,9 @@ export async function initDB() {
       try {
         const connection = await (db as mysql.Pool).getConnection();
         connection.release();
-      } catch (error) {
-        console.warn(`⚠️ MySQL indisponible, bascule SQLite: ${(error as Error).message}`);
-        useMySQL = false;
-        mysqlPool = null;
-        db = await getDb();
+      } catch (connErr) {
+        console.error("❌ Connexion base impossible :", (connErr as Error).message);
+        throw connErr;
       }
     }
 
