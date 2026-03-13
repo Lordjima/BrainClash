@@ -330,9 +330,9 @@ async function seedData() {
     ];
 
     const shopItems = [
-      { id: 'fumigene', name: 'Fumigène', description: 'Floute l'écran des adversaires pendant 5s', price: 50, icon: 'EyeOff', type: 'attack' },
-      { id: 'seisme', name: 'Séisme', description: 'Fait trembler l'écran des adversaires', price: 75, icon: 'Zap', type: 'attack' },
-      { id: 'inversion', name: 'Inversion', description: 'Met l'écran des adversaires à l'envers', price: 100, icon: 'RefreshCcw', type: 'attack' },
+      { id: 'fumigene', name: 'Fumigène', description: 'Floute l\'écran des adversaires pendant 5s', price: 50, icon: 'EyeOff', type: 'attack' },
+      { id: 'seisme', name: 'Séisme', description: 'Fait trembler l\'écran des adversaires', price: 75, icon: 'Zap', type: 'attack' },
+      { id: 'inversion', name: 'Inversion', description: 'Met l\'écran des adversaires à l\'envers', price: 100, icon: 'RefreshCcw', type: 'attack' },
       { id: 'bouclier', name: 'Bouclier', description: 'Protège contre la prochaine attaque', price: 50, icon: 'Shield', type: 'defense' }
     ];
 
