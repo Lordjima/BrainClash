@@ -17,12 +17,14 @@ export type Player = {
   isCorrect?: boolean;
 };
 
+export type RoomStatus = "lobby" | "active" | "finished";
+
 export type RoomState = {
   id: string;
   name?: string;
   description?: string;
   hostId: string;
-  status: 'lobby' | 'active' | 'finished';
+  status: RoomStatus;
   questions: Question[];
   currentQuestionIndex: number;
   questionStartTime: number | null;
@@ -43,13 +45,15 @@ export type GlobalLeaderboardEntry = {
   inventory: string[];
 };
 
+export type ShopItemType = "attack" | "defense" | "bonus";
+
 export type ShopItem = {
   id: string;
   name: string;
   description: string;
   price: number;
   icon: string;
-  type: 'attack' | 'defense' | 'bonus';
+  type: ShopItemType;
 };
 
 export type Theme = {
@@ -67,6 +71,8 @@ export type SavedQuiz = {
   createdAt: number;
 };
 
+export type SubmittedQuestionStatus = "pending" | "approved" | "rejected";
+
 export type SubmittedQuestion = {
   id: string;
   text: string;
@@ -74,5 +80,5 @@ export type SubmittedQuestion = {
   correctOptionIndex: number;
   author: string;
   theme: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: SubmittedQuestionStatus;
 };

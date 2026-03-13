@@ -1,308 +1,414 @@
-import mysql from 'mysql2/promise';
-import dotenv from 'dotenv';
-import type { GlobalLeaderboardEntry, SubmittedQuestion, Question, Theme } from '../types.ts';
+import mysql, { type Pool, type RowDataPacket } from "mysql2/promise";
+import { env } from "./env";
+import { logger } from "./logger";
+import type {
+  GlobalLeaderboardEntry,
+  Question,
+  SubmittedQuestion,
+  Theme
+} from "../types";
 
-dotenv.config();
+let pool: Pool | null = null;
 
-export const pool = mysql.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '3306'),
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || 'root123',
-  database: process.env.DB_NAME || 'twitch_live_quiz',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
-});
+function getPool(): Pool {
+  if (pool) {
+    return pool;
+  }
 
-export async function initDB() {
+  pool = mysql.createPool({
+    host: env.db.host,
+    port: env.db.port,
+    user: env.db.user,
+    password: env.db.password,
+    database: env.db.name,
+    waitForConnections: true,
+    connectionLimit: env.db.connectionLimit,
+    queueLimit: 0
+  });
+
+  return pool;
+}
+
+export async function testDBConnection(): Promise<void> {
+  const db = getPool();
+  const connection = await db.getConnection();
   try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS leaderboard (
-        username VARCHAR(255) PRIMARY KEY,
-        avatar VARCHAR(255),
-        score INT NOT NULL DEFAULT 0,
-        games_played INT NOT NULL DEFAULT 0,
-        last_played DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        coins INT NOT NULL DEFAULT 0,
-        is_sub BOOLEAN DEFAULT FALSE,
-        badges JSON,
-        inventory JSON
-      )
-    `);
-
-    // Safely add columns if table already exists
-    const cols = [
-      'coins INT NOT NULL DEFAULT 0',
-      'is_sub BOOLEAN DEFAULT FALSE',
-      'badges JSON',
-      'inventory JSON'
-    ];
-    for (const col of cols) {
-      try {
-        await pool.query(`ALTER TABLE leaderboard ADD COLUMN ${col}`);
-      } catch (e) {
-        // Ignore errors if columns already exist
-      }
-    }
-
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS submitted_questions (
-        id VARCHAR(255) PRIMARY KEY,
-        theme VARCHAR(255) NOT NULL,
-        text TEXT NOT NULL,
-        options JSON NOT NULL,
-        correctOptionIndex INT NOT NULL,
-        author VARCHAR(255) NOT NULL,
-        status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS themes (
-        id VARCHAR(255) PRIMARY KEY,
-        name VARCHAR(255) NOT NULL
-      )
-    `);
-
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS questions (
-        id VARCHAR(255) PRIMARY KEY,
-        theme_id VARCHAR(255) NOT NULL,
-        text TEXT NOT NULL,
-        options JSON NOT NULL,
-        correctOptionIndex INT NOT NULL,
-        timeLimit INT NOT NULL DEFAULT 15,
-        is_custom BOOLEAN DEFAULT FALSE,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (theme_id) REFERENCES themes(id) ON DELETE CASCADE
-      )
-    `);
-
-    console.log('✅ Base de données MySQL initialisée avec succès');
-  } catch (error) {
-    console.error("❌ Erreur lors de l'initialisation de la base de données:", error);
+    await connection.ping();
+    logger.info("MySQL connection OK");
+  } finally {
+    connection.release();
   }
 }
 
-export async function getThemesWithQuestions(): Promise<Record<string, Theme>> {
-  try {
-    const [themes]: any = await pool.query('SELECT * FROM themes');
-    const [questions]: any = await pool.query('SELECT * FROM questions');
+export async function initDB(): Promise<void> {
+  const db = getPool();
 
-    const result: Record<string, Theme> = {};
-    for (const t of themes) {
-      result[t.id] = { id: t.id, name: t.name, questions: [] };
-    }
-    for (const q of questions) {
-      if (result[q.theme_id]) {
-        result[q.theme_id].questions.push({
-          id: q.id,
-          text: q.text,
-          options: typeof q.options === 'string' ? JSON.parse(q.options) : q.options,
-          correctOptionIndex: q.correctOptionIndex,
-          timeLimit: q.timeLimit
-        });
-      }
-    }
-    return result;
-  } catch (error) {
-    console.error('Error fetching themes:', error);
-    return {};
-  }
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS leaderboard (
+      username VARCHAR(255) PRIMARY KEY,
+      avatar TEXT NULL,
+      score INT NOT NULL DEFAULT 0,
+      games_played INT NOT NULL DEFAULT 0,
+      date BIGINT NOT NULL,
+      coins INT NOT NULL DEFAULT 0,
+      is_sub BOOLEAN NOT NULL DEFAULT FALSE,
+      badges JSON NOT NULL,
+      inventory JSON NOT NULL
+    )
+  `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS submitted_questions (
+      id VARCHAR(64) PRIMARY KEY,
+      text TEXT NOT NULL,
+      options JSON NOT NULL,
+      correct_option_index INT NOT NULL,
+      author VARCHAR(255) NOT NULL,
+      theme VARCHAR(255) NOT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'pending'
+    )
+  `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS themes (
+      id VARCHAR(64) PRIMARY KEY,
+      name VARCHAR(255) NOT NULL UNIQUE
+    )
+  `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS questions (
+      id VARCHAR(64) PRIMARY KEY,
+      theme_id VARCHAR(64) NOT NULL,
+      text TEXT NOT NULL,
+      options JSON NOT NULL,
+      correct_option_index INT NOT NULL,
+      time_limit INT NOT NULL DEFAULT 20,
+      CONSTRAINT fk_questions_theme
+        FOREIGN KEY (theme_id) REFERENCES themes(id)
+        ON DELETE CASCADE
+    )
+  `);
+
+  logger.info("Database initialized");
 }
 
-export async function addTheme(id: string, name: string) {
-  try {
-    await pool.query('INSERT IGNORE INTO themes (id, name) VALUES (?, ?)', [id, name]);
-  } catch (error) {
-    console.error('Error adding theme:', error);
-  }
-}
-
-export async function addQuestion(q: Question, themeId: string, isCustom: boolean = true) {
-  try {
-    await pool.query(
-      'INSERT INTO questions (id, theme_id, text, options, correctOptionIndex, timeLimit, is_custom) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [q.id, themeId, q.text, JSON.stringify(q.options), q.correctOptionIndex, q.timeLimit || 15, isCustom]
-    );
-  } catch (error) {
-    console.error('Error adding question:', error);
-  }
-}
+type LeaderboardRow = RowDataPacket & {
+  username: string;
+  avatar: string | null;
+  score: number;
+  games_played: number;
+  date: number;
+  coins: number;
+  is_sub: number | boolean;
+  badges: string;
+  inventory: string;
+};
 
 export async function getLeaderboard(): Promise<GlobalLeaderboardEntry[]> {
-  try {
-    const [rows] = await pool.query('SELECT username, avatar, score, games_played, UNIX_TIMESTAMP(last_played) * 1000 as date, coins, is_sub, badges, inventory FROM leaderboard ORDER BY score DESC LIMIT 50');
-    return (rows as any[]).map(row => ({
-      ...row,
-      is_sub: !!row.is_sub,
-      badges: typeof row.badges === 'string' ? JSON.parse(row.badges) : (row.badges || []),
-      inventory: typeof row.inventory === 'string' ? JSON.parse(row.inventory) : (row.inventory || [])
-    }));
-  } catch (error) {
-    console.error('Error fetching leaderboard:', error);
-    return [];
-  }
+  const db = getPool();
+
+  const [rows] = await db.query<LeaderboardRow[]>(
+    `
+      SELECT username, avatar, score, games_played, date, coins, is_sub, badges, inventory
+      FROM leaderboard
+      ORDER BY score DESC, date ASC
+      LIMIT 100
+    `
+  );
+
+  return rows.map((row) => ({
+    username: row.username,
+    avatar: row.avatar ?? undefined,
+    score: row.score,
+    games_played: row.games_played,
+    date: row.date,
+    coins: row.coins,
+    is_sub: Boolean(row.is_sub),
+    badges: safeJsonParse<string[]>(row.badges, []),
+    inventory: safeJsonParse<string[]>(row.inventory, [])
+  }));
 }
 
-export async function getUserProfile(username: string): Promise<GlobalLeaderboardEntry | null> {
-  try {
-    const [rows]: any = await pool.query('SELECT username, avatar, score, games_played, UNIX_TIMESTAMP(last_played) * 1000 as date, coins, is_sub, badges, inventory FROM leaderboard WHERE username = ?', [username]);
-    if (rows.length > 0) {
-      const row = rows[0];
-      return {
-        ...row,
-        is_sub: !!row.is_sub,
-        badges: typeof row.badges === 'string' ? JSON.parse(row.badges) : (row.badges || []),
-        inventory: typeof row.inventory === 'string' ? JSON.parse(row.inventory) : (row.inventory || [])
+type SubmittedQuestionRow = RowDataPacket & {
+  id: string;
+  text: string;
+  options: string;
+  correct_option_index: number;
+  author: string;
+  theme: string;
+  status: "pending" | "approved" | "rejected";
+};
+
+export async function getPendingQuestions(): Promise<SubmittedQuestion[]> {
+  const db = getPool();
+
+  const [rows] = await db.query<SubmittedQuestionRow[]>(
+    `
+      SELECT id, text, options, correct_option_index, author, theme, status
+      FROM submitted_questions
+      WHERE status = 'pending'
+      ORDER BY id DESC
+    `
+  );
+
+  return rows.map((row) => ({
+    id: row.id,
+    text: row.text,
+    options: safeJsonParse<string[]>(row.options, []),
+    correctOptionIndex: row.correct_option_index,
+    author: row.author,
+    theme: row.theme,
+    status: row.status
+  }));
+}
+
+export async function addSubmittedQuestion(input: SubmittedQuestion): Promise<void> {
+  const db = getPool();
+
+  await db.query(
+    `
+      INSERT INTO submitted_questions
+      (id, text, options, correct_option_index, author, theme, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `,
+    [
+      input.id,
+      input.text,
+      JSON.stringify(input.options),
+      input.correctOptionIndex,
+      input.author,
+      input.theme,
+      input.status
+    ]
+  );
+}
+
+export async function updateSubmittedQuestionStatus(
+  id: string,
+  status: "pending" | "approved" | "rejected"
+): Promise<void> {
+  const db = getPool();
+
+  await db.query(
+    `
+      UPDATE submitted_questions
+      SET status = ?
+      WHERE id = ?
+    `,
+    [status, id]
+  );
+}
+
+type ThemeRow = RowDataPacket & {
+  theme_id: string;
+  theme_name: string;
+  question_id: string | null;
+  question_text: string | null;
+  question_options: string | null;
+  correct_option_index: number | null;
+  time_limit: number | null;
+};
+
+export async function getThemesWithQuestions(): Promise<Record<string, Theme>> {
+  const db = getPool();
+
+  const [rows] = await db.query<ThemeRow[]>(
+    `
+      SELECT
+        t.id AS theme_id,
+        t.name AS theme_name,
+        q.id AS question_id,
+        q.text AS question_text,
+        q.options AS question_options,
+        q.correct_option_index,
+        q.time_limit
+      FROM themes t
+      LEFT JOIN questions q ON q.theme_id = t.id
+      ORDER BY t.name ASC
+    `
+  );
+
+  const result: Record<string, Theme> = {};
+
+  for (const row of rows) {
+    if (!result[row.theme_id]) {
+      result[row.theme_id] = {
+        id: row.theme_id,
+        name: row.theme_name,
+        questions: []
       };
     }
-    return null;
-  } catch (error) {
-    console.error('Error fetching user profile:', error);
-    return null;
-  }
-}
 
-export async function updateUserProfile(username: string, avatar: string | undefined, score: number, coinsEarned: number, newBadges: string[]) {
-  try {
-    const profile = await getUserProfile(username);
-    const currentBadges = profile?.badges || [];
-    const mergedBadges = Array.from(new Set([...currentBadges, ...newBadges]));
+    if (row.question_id && row.question_text && row.question_options) {
+      const question: Question = {
+        id: row.question_id,
+        text: row.question_text,
+        options: safeJsonParse<string[]>(row.question_options, []),
+        correctOptionIndex: row.correct_option_index ?? 0,
+        timeLimit: row.time_limit ?? 20
+      };
 
-    await pool.query(`
-      INSERT INTO leaderboard (username, avatar, score, games_played, coins, badges, inventory) 
-      VALUES (?, ?, ?, 1, ?, ?, '[]') 
-      ON DUPLICATE KEY UPDATE 
-        avatar = VALUES(avatar),
-        score = GREATEST(score, VALUES(score)),
-        games_played = games_played + 1,
-        coins = coins + VALUES(coins),
-        badges = VALUES(badges)
-    `, [username, avatar, score, coinsEarned, JSON.stringify(mergedBadges)]);
-  } catch (error) {
-    console.error('Error updating user profile:', error);
-  }
-}
-
-export async function batchUpdateUserProfiles(updates: { username: string, avatar: string | undefined, score: number, coinsEarned: number, newBadges: string[] }[]) {
-  if (updates.length === 0) return;
-  
-  try {
-    // We can't easily do a single query for multiple different updates with different values for each field in MySQL without complex CASE statements
-    // But we can at least use a transaction to make it atomic and slightly faster
-    const connection = await pool.getConnection();
-    await connection.beginTransaction();
-    
-    try {
-      for (const update of updates) {
-        const [rows]: any = await connection.query('SELECT badges FROM leaderboard WHERE username = ?', [update.username]);
-        const currentBadges = rows.length > 0 ? (typeof rows[0].badges === 'string' ? JSON.parse(rows[0].badges) : (rows[0].badges || [])) : [];
-        const mergedBadges = Array.from(new Set([...currentBadges, ...update.newBadges]));
-
-        await connection.query(`
-          INSERT INTO leaderboard (username, avatar, score, games_played, coins, badges, inventory) 
-          VALUES (?, ?, ?, 1, ?, ?, '[]') 
-          ON DUPLICATE KEY UPDATE 
-            avatar = VALUES(avatar),
-            score = GREATEST(score, VALUES(score)),
-            games_played = games_played + 1,
-            coins = coins + VALUES(coins),
-            badges = VALUES(badges)
-        `, [update.username, update.avatar, update.score, update.coinsEarned, JSON.stringify(mergedBadges)]);
-      }
-      await connection.commit();
-    } catch (error) {
-      await connection.rollback();
-      throw error;
-    } finally {
-      connection.release();
+      result[row.theme_id].questions.push(question);
     }
-  } catch (error) {
-    console.error('Error batch updating user profiles:', error);
+  }
+
+  return result;
+}
+
+export async function addTheme(id: string, name: string): Promise<void> {
+  const db = getPool();
+
+  await db.query(
+    `
+      INSERT INTO themes (id, name)
+      VALUES (?, ?)
+    `,
+    [id, name]
+  );
+}
+
+export async function addQuestion(themeId: string, question: Question): Promise<void> {
+  const db = getPool();
+
+  await db.query(
+    `
+      INSERT INTO questions
+      (id, theme_id, text, options, correct_option_index, time_limit)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `,
+    [
+      question.id,
+      themeId,
+      question.text,
+      JSON.stringify(question.options),
+      question.correctOptionIndex,
+      question.timeLimit
+    ]
+  );
+}
+
+function safeJsonParse<T>(value: string, fallback: T): T {
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
   }
 }
 
-export async function buyItem(username: string, itemId: string, cost: number): Promise<boolean> {
-  try {
-    const profile = await getUserProfile(username);
-    if (!profile || profile.coins < cost) return false;
+type UserProfileRow = RowDataPacket & {
+  username: string;
+  avatar: string | null;
+  score: number;
+  games_played: number;
+  date: number;
+  coins: number;
+  is_sub: number | boolean;
+  badges: string;
+  inventory: string;
+};
 
-    const newInventory = [...profile.inventory, itemId];
-    await pool.query('UPDATE leaderboard SET coins = coins - ?, inventory = ? WHERE username = ?', [cost, JSON.stringify(newInventory), username]);
-    return true;
-  } catch (error) {
-    console.error('Error buying item:', error);
-    return false;
+export async function getUserProfile(username: string): Promise<GlobalLeaderboardEntry | null> {
+  const db = getPool();
+
+  const [rows] = await db.query<UserProfileRow[]>(
+    `
+      SELECT username, avatar, score, games_played, date, coins, is_sub, badges, inventory
+      FROM leaderboard
+      WHERE username = ?
+      LIMIT 1
+    `,
+    [username]
+  );
+
+  if (rows.length === 0) {
+    return null;
   }
+
+  const row = rows[0];
+
+  return {
+    username: row.username,
+    avatar: row.avatar ?? undefined,
+    score: row.score,
+    games_played: row.games_played,
+    date: row.date,
+    coins: row.coins,
+    is_sub: Boolean(row.is_sub),
+    badges: safeJsonParse<string[]>(row.badges, []),
+    inventory: safeJsonParse<string[]>(row.inventory, [])
+  };
+}
+
+export async function updateUserProfile(profile: GlobalLeaderboardEntry): Promise<void> {
+  const db = getPool();
+
+  await db.query(
+    `
+      INSERT INTO leaderboard
+      (username, avatar, score, games_played, date, coins, is_sub, badges, inventory)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        avatar = VALUES(avatar),
+        score = VALUES(score),
+        games_played = VALUES(games_played),
+        date = VALUES(date),
+        coins = VALUES(coins),
+        is_sub = VALUES(is_sub),
+        badges = VALUES(badges),
+        inventory = VALUES(inventory)
+    `,
+    [
+      profile.username,
+      profile.avatar ?? null,
+      profile.score,
+      profile.games_played,
+      profile.date,
+      profile.coins,
+      profile.is_sub,
+      JSON.stringify(profile.badges ?? []),
+      JSON.stringify(profile.inventory ?? [])
+    ]
+  );
+}
+
+export async function buyItem(username: string, itemId: string, price: number): Promise<boolean> {
+  const profile = await getUserProfile(username);
+  if (!profile) return false;
+  if (profile.coins < price) return false;
+
+  profile.coins -= price;
+  profile.inventory = [...(profile.inventory ?? []), itemId];
+  await updateUserProfile(profile);
+
+  return true;
 }
 
 export async function useItem(username: string, itemId: string): Promise<boolean> {
-  try {
-    const profile = await getUserProfile(username);
-    if (!profile) return false;
+  const profile = await getUserProfile(username);
+  if (!profile) return false;
 
-    const itemIndex = profile.inventory.indexOf(itemId);
-    if (itemIndex === -1) return false;
+  const index = (profile.inventory ?? []).indexOf(itemId);
+  if (index === -1) return false;
 
-    const newInventory = [...profile.inventory];
-    newInventory.splice(itemIndex, 1);
+  profile.inventory.splice(index, 1);
+  await updateUserProfile(profile);
 
-    await pool.query('UPDATE leaderboard SET inventory = ? WHERE username = ?', [JSON.stringify(newInventory), username]);
-    return true;
-  } catch (error) {
-    console.error('Error using item:', error);
-    return false;
-  }
+  return true;
 }
 
 export async function toggleSubStatus(username: string): Promise<boolean> {
-  try {
-    const profile = await getUserProfile(username);
-    if (!profile) return false;
-    const newStatus = !profile.is_sub;
-    await pool.query('UPDATE leaderboard SET is_sub = ? WHERE username = ?', [newStatus, username]);
-    return newStatus;
-  } catch (error) {
-    console.error('Error toggling sub status:', error);
-    return false;
-  }
+  const profile = await getUserProfile(username);
+  if (!profile) return false;
+
+  profile.is_sub = !profile.is_sub;
+  await updateUserProfile(profile);
+
+  return profile.is_sub;
 }
 
-export async function updateLeaderboard(players: any[]) {
-  // Deprecated: use updateUserProfile instead
-}
-
-export async function getPendingQuestions(): Promise<SubmittedQuestion[]> {
-  try {
-    const [rows] = await pool.query('SELECT * FROM submitted_questions WHERE status = "pending" ORDER BY created_at DESC');
-    return (rows as any[]).map(row => ({
-      ...row,
-      options: typeof row.options === 'string' ? JSON.parse(row.options) : row.options
-    }));
-  } catch (error) {
-    console.error('Error fetching pending questions:', error);
-    return [];
-  }
-}
-
-export async function addSubmittedQuestion(q: SubmittedQuestion) {
-  try {
-    await pool.query(`
-      INSERT INTO submitted_questions (id, theme, text, options, correctOptionIndex, author, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `, [q.id, q.theme, q.text, JSON.stringify(q.options), q.correctOptionIndex, q.author, q.status]);
-  } catch (error) {
-    console.error('Error adding submitted question:', error);
-  }
-}
-
-export async function updateSubmittedQuestionStatus(id: string, status: 'approved' | 'rejected') {
-  try {
-    await pool.query('UPDATE submitted_questions SET status = ? WHERE id = ?', [status, id]);
-  } catch (error) {
-    console.error('Error updating question status:', error);
+export async function batchUpdateUserProfiles(profiles: GlobalLeaderboardEntry[]): Promise<void> {
+  for (const profile of profiles) {
+    await updateUserProfile(profile);
   }
 }
