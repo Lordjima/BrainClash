@@ -5,8 +5,6 @@ import { Server } from 'socket.io';
 import path from 'path';
 import dotenv from 'dotenv';
 
-// Load environment variables from .env file (for local development)
-dotenv.config();
 
 import type { Question, Player, RoomState, GlobalLeaderboardEntry, SubmittedQuestion, Theme } from './src/types';
 import { initDB, getLeaderboard, getPendingQuestions, addSubmittedQuestion, updateSubmittedQuestionStatus, getThemesWithQuestions, addTheme, addQuestion, getUserProfile, updateUserProfile, buyItem, useItem, toggleSubStatus, batchUpdateUserProfiles, getAllBadges, getShopItems, awardBadgeXp, getAuctionItems, openLootBox, listItemForAuction } from './src/lib/db';
