@@ -1,16 +1,18 @@
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import dotenv from "dotenv";
-import cors from "cors";
-import type { Question, Player, RoomState, GlobalLeaderboardEntry, SubmittedQuestion, Theme } from './types';
-import { initDB, getLeaderboard, getPendingQuestions, addSubmittedQuestion, updateSubmittedQuestionStatus, getThemesWithQuestions, addTheme, addQuestion, getUserProfile, updateUserProfile, buyItem, useItem, toggleSubStatus, batchUpdateUserProfiles, getAllBadges, getShopItems, awardBadgeXp, getAuctionItems, openLootBox, listItemForAuction, addBrainCoins } from './db';
+import path from 'path';
+import dotenv from 'dotenv';
+
+// Load environment variables from .env file (for local development)
+dotenv.config();
+
+import type { Question, Player, RoomState, GlobalLeaderboardEntry, SubmittedQuestion, Theme } from './src/types';
+import { initDB, getLeaderboard, getPendingQuestions, addSubmittedQuestion, updateSubmittedQuestionStatus, getThemesWithQuestions, addTheme, addQuestion, getUserProfile, updateUserProfile, buyItem, useItem, toggleSubStatus, batchUpdateUserProfiles, getAllBadges, getShopItems, awardBadgeXp, getAuctionItems, openLootBox, listItemForAuction, addBrainCoins } from './src/lib/db';
 
 let globalLeaderboard: GlobalLeaderboardEntry[] = [];
 let pendingQuestionsCache: SubmittedQuestion[] | null = null;
 let themesCache: Record<string, Theme> | null = null;
-
-dotenv.config();
 
 async function refreshLeaderboard(io: Server) {
   globalLeaderboard = await getLeaderboard();
@@ -156,12 +158,6 @@ function scheduleNextQuestion(roomId: string, io: Server) {
 async function startServer() {
   console.log('Starting server...');
   const app = express();
-
-  app.use(cors({
-    origin: "https://brainclash.fr",
-    credentials: true
-  }));
-
   app.use(express.json());
 
   app.get('/api/health', (req, res) => {
@@ -170,7 +166,7 @@ async function startServer() {
 
   const httpServer = createServer(app);
   const io = new Server(httpServer, {
-    cors: { origin: "https://brainclash.fr", credentials: true }
+    cors: { origin: '*' }
   });
 
   // Twitch OAuth Routes
@@ -181,190 +177,74 @@ async function startServer() {
   };
 
   app.get('/api/auth/twitch/url', (req, res) => {
-    const redirectUri = (req.query.redirect_uri as string) || getRedirectUri(req);
-
-    if (!process.env.TWITCH_CLIENT_ID) {
-      return res.status(500).json({ error: 'TWITCH_CLIENT_ID manquant' });
-    }
-
-    const state = Math.random().toString(36).slice(2) + Date.now().toString(36);
-
+    const redirectUri = req.query.redirect_uri as string || getRedirectUri(req);
     const params = new URLSearchParams({
-      client_id: process.env.TWITCH_CLIENT_ID,
+      client_id: process.env.TWITCH_CLIENT_ID || '',
       redirect_uri: redirectUri,
       response_type: 'code',
       scope: 'user:read:email',
-      state
+      state: redirectUri // Pass the redirectUri in the state parameter
     });
-
-    res.json({
-      url: `https://id.twitch.tv/oauth2/authorize?${params.toString()}`
-    });
+    res.json({ url: `https://id.twitch.tv/oauth2/authorize?${params}` });
   });
 
   app.get(['/auth/twitch/callback', '/auth/twitch/callback/'], async (req, res) => {
-    const { code, error, error_description } = req.query;
-    const redirectUri = getRedirectUri(req);
-
+    const { code, state } = req.query;
+    // Use state to get the exact redirect_uri used, fallback to reconstruct
+    const redirectUri = (state as string) || getRedirectUri(req);
+    
     try {
       if (!process.env.TWITCH_CLIENT_ID || !process.env.TWITCH_CLIENT_SECRET) {
         console.error('Missing Twitch credentials in environment variables');
         return res.status(500).send('Configuration Twitch manquante (Client ID ou Secret).');
       }
 
-      if (error) {
-        return res.send(`
-          <html>
-            <body>
-              <script>
-                if (window.opener) {
-                  window.opener.postMessage(
-                    {
-                      type: 'TWITCH_AUTH_ERROR',
-                      error: ${JSON.stringify(String(error))},
-                      description: ${JSON.stringify(String(error_description || 'Connexion refusée'))}
-                    },
-                    ${JSON.stringify(redirectUri.replace('/auth/twitch/callback', ''))}
-                  );
-                  window.close();
-                } else {
-                  window.location.href = '/';
-                }
-              </script>
-              <p>Connexion Twitch refusée.</p>
-            </body>
-          </html>
-        `);
-      }
-
-      if (!code) {
-        return res.status(400).send('Code OAuth Twitch manquant.');
-      }
-
       const tokenResponse = await fetch('https://id.twitch.tv/oauth2/token', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
-          client_id: process.env.TWITCH_CLIENT_ID,
-          client_secret: process.env.TWITCH_CLIENT_SECRET,
-          code: String(code),
+          client_id: process.env.TWITCH_CLIENT_ID || '',
+          client_secret: process.env.TWITCH_CLIENT_SECRET || '',
+          code: code as string,
           grant_type: 'authorization_code',
           redirect_uri: redirectUri
         })
       });
-
+      
       const tokenData = await tokenResponse.json();
-
-      if (!tokenResponse.ok || !tokenData.access_token) {
+      
+      if (tokenData.access_token) {
+        const userResponse = await fetch('https://api.twitch.tv/helix/users', {
+          headers: {
+            'Authorization': `Bearer ${tokenData.access_token}`,
+            'Client-Id': process.env.TWITCH_CLIENT_ID || ''
+          }
+        });
+        const userData = await userResponse.json();
+        const user = userData.data[0];
+        
+        res.send(`
+          <html>
+            <body>
+              <script>
+                if (window.opener) {
+                  window.opener.postMessage({ type: 'TWITCH_AUTH_SUCCESS', user: ${JSON.stringify(user)} }, '*');
+                  window.close();
+                } else {
+                  window.location.href = '/';
+                }
+              </script>
+              <p>Authentification réussie. Cette fenêtre va se fermer automatiquement.</p>
+            </body>
+          </html>
+        `);
+      } else {
         console.error('Twitch token error:', tokenData);
-
-        return res.send(`
-          <html>
-            <body>
-              <script>
-                if (window.opener) {
-                  window.opener.postMessage(
-                    {
-                      type: 'TWITCH_AUTH_ERROR',
-                      error: 'token_exchange_failed',
-                      description: ${JSON.stringify(tokenData?.message || 'Erreur token Twitch')}
-                    },
-                    ${JSON.stringify(redirectUri.replace('/auth/twitch/callback', ''))}
-                  );
-                  window.close();
-                } else {
-                  window.location.href = '/';
-                }
-              </script>
-              <p>Erreur lors de l'authentification Twitch.</p>
-            </body>
-          </html>
-        `);
+        res.send(`Erreur lors de l'authentification Twitch: ${tokenData.message || 'Erreur inconnue'}`);
       }
-
-      const userResponse = await fetch('https://api.twitch.tv/helix/users', {
-        headers: {
-          Authorization: `Bearer ${tokenData.access_token}`,
-          'Client-Id': process.env.TWITCH_CLIENT_ID
-        }
-      });
-
-      const userData = await userResponse.json();
-      const user = userData?.data?.[0];
-
-      if (!user) {
-        return res.send(`
-          <html>
-            <body>
-              <script>
-                if (window.opener) {
-                  window.opener.postMessage(
-                    {
-                      type: 'TWITCH_AUTH_ERROR',
-                      error: 'user_fetch_failed',
-                      description: 'Impossible de récupérer le profil Twitch'
-                    },
-                    ${JSON.stringify(redirectUri.replace('/auth/twitch/callback', ''))}
-                  );
-                  window.close();
-                } else {
-                  window.location.href = '/';
-                }
-              </script>
-              <p>Impossible de récupérer le profil Twitch.</p>
-            </body>
-          </html>
-        `);
-      }
-
-      return res.send(`
-        <html>
-          <body>
-            <script>
-              if (window.opener) {
-                window.opener.postMessage(
-                  {
-                    type: 'TWITCH_AUTH_SUCCESS',
-                    user: ${JSON.stringify(user)}
-                  },
-                  ${JSON.stringify(redirectUri.replace('/auth/twitch/callback', ''))}
-                );
-                window.close();
-              } else {
-                window.location.href = '/';
-              }
-            </script>
-            <p>Authentification réussie. Cette fenêtre va se fermer automatiquement.</p>
-          </body>
-        </html>
-      `);
     } catch (error) {
       console.error('Twitch auth error:', error);
-
-      return res.send(`
-        <html>
-          <body>
-            <script>
-              if (window.opener) {
-                window.opener.postMessage(
-                  {
-                    type: 'TWITCH_AUTH_ERROR',
-                    error: 'server_error',
-                    description: 'Erreur serveur'
-                  },
-                  ${JSON.stringify(redirectUri.replace('/auth/twitch/callback', ''))}
-                );
-                window.close();
-              } else {
-                window.location.href = '/';
-              }
-            </script>
-            <p>Erreur serveur.</p>
-          </body>
-        </html>
-      `);
+      res.send('Erreur serveur.');
     }
   });
 
@@ -434,7 +314,7 @@ async function startServer() {
         
         if (action === 'approve' && theme) {
           const themes = await getCachedThemes();
-          let targetThemeId = theme;
+          let targetThemeId: string | number = theme;
           
           // Check if theme exists by id or name
           const existingThemeId = Object.keys(themes).find(k => k === theme || themes[k].name.toLowerCase() === theme.toLowerCase());
@@ -443,8 +323,7 @@ async function startServer() {
             targetThemeId = existingThemeId;
           } else {
             // Create new theme
-            targetThemeId = theme.toLowerCase().replace(/[^a-z0-9]/g, '-');
-            await addTheme(targetThemeId, theme);
+            targetThemeId = await addTheme(theme) || theme;
           }
 
           const newQ: Question = {
@@ -847,17 +726,36 @@ async function startServer() {
     });
   });
 
-  await initDB();
-  globalLeaderboard = await getLeaderboard();
-  console.log('✅ Initial data loaded');
+  // Vite middleware for development
+  if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import('vite');
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa",
+    });
+    app.use(vite.middlewares);
+  } else {
+    const distPath = path.join(process.cwd(), 'dist');
+    app.use(express.static(distPath));
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  }
 
   const PORT = process.env.PORT || 3000;
-  httpServer.listen(Number(PORT), "0.0.0.0", () => {
+  httpServer.listen(Number(PORT), "0.0.0.0", async () => {
     console.log(`Server running on port ${PORT}`);
+    
+    // Initialize Database after server is listening
+    try {
+      await initDB();
+      // Load initial data
+      globalLeaderboard = await getLeaderboard();
+      console.log('✅ Initial data loaded');
+    } catch (err) {
+      console.error('❌ Error during post-startup initialization:', err);
+    }
   });
 }
 
-startServer().catch((err) => {
-  console.error('❌ Impossible de démarrer le serveur :', err);
-  process.exit(1);
-});
+startServer();

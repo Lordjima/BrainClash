@@ -7,31 +7,34 @@ export type Question = {
 };
 
 export type Player = {
-  id: string | number;
-  username: string;
-  avatar?: string;
-  score: number;
-  color: string;
-  hasAnswered: boolean;
-  answerTime?: number;
-  isCorrect?: boolean;
-  isProtected?: boolean;
-  level: number;
-};
+      id: string | number;
+      username: string;
+      avatar?: string;
+      score: number;
+      color: string;
+      hasAnswered: boolean;
+      answerTime?: number;
+      isCorrect?: boolean;
+      isProtected?: boolean;
+      level: number;
+      streak?: number;
+    };
 
 export type RoomState = {
-  id: string | number;
-  name?: string;
-  description?: string;
-  hostId: string;
-  status: 'lobby' | 'active' | 'finished';
-  questions: Question[];
-  currentQuestionIndex: number;
-  questionStartTime: number | null;
-  serverTime?: number;
-  players: Record<string, Player>;
-  showAnswer: boolean;
-};
+      id: string | number;
+      name?: string;
+      description?: string;
+      hostId: string;
+      status: 'lobby' | 'active' | 'finished';
+      questions: Question[];
+      currentQuestionIndex: number;
+      questionStartTime: number | null;
+      serverTime?: number;
+      players: Record<string, Player>;
+      showAnswer: boolean;
+      theme?: string;
+      isPublic?: boolean;
+    };
 
 export interface Badge {
   id: string | number;
