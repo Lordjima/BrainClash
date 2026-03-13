@@ -31,22 +31,27 @@ export default function ReviewQuestions() {
   }, []);
 
   const handleReview = (id: string, action: 'approve' | 'reject', theme: string) => {
-    socket.emit('review_question', { id, action, theme });
+    const storedUser = localStorage.getItem('twitch_user');
+    if (!storedUser) return;
+    const user = JSON.parse(storedUser);
+    
+    socket.emit('review_question', { id, action, theme, username: user.display_name });
     // Optimistic update
     setQuestions(prev => prev.filter(q => q.id !== id));
   };
 
   return (
-    <div className="min-h-screen bg-transparent text-white p-6">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center gap-4 mb-8">
+    <div className="h-full bg-transparent text-white p-4 overflow-hidden">
+      <div className="max-w-4xl mx-auto h-full flex flex-col overflow-hidden">
+        <div className="flex items-center gap-4 mb-8 shrink-0">
           <h1 className="text-3xl font-bold flex items-center gap-3">
             <Inbox className="w-8 h-8 text-blue-500" />
             Vérification des questions
           </h1>
         </div>
 
-        {loading ? (
+        <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
+          {loading ? (
           <div className="flex justify-center py-20">
             <div className="w-12 h-12 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
           </div>
@@ -106,6 +111,7 @@ export default function ReviewQuestions() {
             ))}
           </div>
         )}
+        </div>
       </div>
     </div>
   );

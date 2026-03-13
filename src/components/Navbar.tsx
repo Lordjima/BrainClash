@@ -1,18 +1,33 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LogIn, User } from 'lucide-react';
+import { LogIn, User, Heart, Star, Coins, ChevronDown, Shield, PlusCircle, Inbox, ShoppingBag } from 'lucide-react';
 import Logo from './Logo';
 import { socket } from '../lib/socket';
+import { useData } from '../DataContext';
 
 export default function Navbar() {
   const navigate = useNavigate();
+  const { userProfile } = useData();
   const [twitchUser, setTwitchUser] = useState<any>(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('twitch_user');
     if (storedUser) {
-      setTwitchUser(JSON.parse(storedUser));
+      try {
+        setTwitchUser(JSON.parse(storedUser));
+      } catch (err) {
+        console.error('Error parsing twitch_user from localStorage:', err);
+        localStorage.removeItem('twitch_user');
+      }
     }
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
 
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === 'TWITCH_AUTH_SUCCESS') {
@@ -21,10 +36,13 @@ export default function Navbar() {
         setTwitchUser(user);
       }
     };
+
     window.addEventListener('message', handleMessage);
+    document.addEventListener('mousedown', handleClickOutside);
 
     return () => {
       window.removeEventListener('message', handleMessage);
+      document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
 
@@ -50,25 +68,115 @@ export default function Navbar() {
     }
   };
 
+  const isAdmin = twitchUser?.display_name === 'JimaG4ming';
+
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-zinc-950/50 backdrop-blur-md border-b border-zinc-800/50 px-6 py-4">
+    <nav className="relative z-50 bg-zinc-950/50 backdrop-blur-md border-b border-zinc-800/50 px-6 py-3 shrink-0">
       <div className="max-w-7xl mx-auto flex justify-between items-center">
-        <Link to="/" className="hover:opacity-80 transition-opacity">
-          <Logo />
-        </Link>
+        <div className="flex items-center gap-8">
+          <Link to="/" className="hover:opacity-80 transition-opacity">
+            <Logo />
+          </Link>
+
+          {userProfile && (
+            <div className="hidden md:flex items-center gap-6">
+              <div className="flex items-center gap-2 bg-zinc-900/50 px-3 py-1.5 rounded-full border border-zinc-800/50">
+                <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                <span className="text-xs font-bold font-mono">LVL {userProfile.level}</span>
+                <div className="w-20 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-yellow-500 transition-all duration-500" 
+                    style={{ width: `${(userProfile.xp % 1000) / 10}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1.5">
+                  <Coins className="w-4 h-4 text-amber-500" />
+                  <span className="text-xs font-bold font-mono text-amber-500">{userProfile.coins}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-4 h-4 bg-fuchsia-500 rounded-full flex items-center justify-center text-[10px] font-black text-white">B</div>
+                  <span className="text-xs font-bold font-mono text-fuchsia-400">{userProfile.brainCoins}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className="flex items-center gap-4">
+          <Link to="/auction-house" className="p-2 text-zinc-400 hover:text-white transition-colors" title="Hôtel des ventes">
+            <ShoppingBag className="w-5 h-5" />
+          </Link>
+
           {twitchUser ? (
-            <Link to="/profile" className="flex items-center gap-3 bg-zinc-900 hover:bg-zinc-800 px-4 py-2 rounded-full border border-zinc-800 transition-colors">
-              <span className="font-medium text-sm hidden sm:block">{twitchUser.display_name}</span>
-              {twitchUser.profile_image_url ? (
-                <img src={twitchUser.profile_image_url} alt="Profile" className="w-8 h-8 rounded-full" referrerPolicy="no-referrer" />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center">
-                  <User className="w-4 h-4 text-white" />
+            <div className="relative" ref={menuRef}>
+              <button 
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="flex items-center gap-3 bg-zinc-900 hover:bg-zinc-800 px-3 py-1.5 rounded-full border border-zinc-800 transition-colors"
+              >
+                {twitchUser.profile_image_url ? (
+                  <img src={twitchUser.profile_image_url} alt="Profile" className="w-8 h-8 rounded-full" referrerPolicy="no-referrer" />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center">
+                    <User className="w-4 h-4 text-white" />
+                  </div>
+                )}
+                <ChevronDown className={`w-4 h-4 text-zinc-500 transition-transform ${isMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {isMenuOpen && (
+                <div className="absolute right-0 mt-2 w-56 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl py-2 overflow-hidden">
+                  <div className="px-4 py-2 border-b border-zinc-800 mb-2">
+                    <div className="font-bold text-sm truncate">{twitchUser.display_name}</div>
+                    <div className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold">Joueur de Quiz</div>
+                  </div>
+                  
+                  <Link 
+                    to="/profile" 
+                    onClick={() => setIsMenuOpen(false)}
+                    className="flex items-center gap-3 px-4 py-2 text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+                  >
+                    <User className="w-4 h-4" /> Mon Profil
+                  </Link>
+
+                  <div className="border-t border-zinc-800 my-2" />
+                  
+                  <div className="px-4 py-1 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Host & Admin</div>
+                  
+                  <Link 
+                    to="/create" 
+                    onClick={() => setIsMenuOpen(false)}
+                    className="flex items-center gap-3 px-4 py-2 text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+                  >
+                    <PlusCircle className="w-4 h-4" /> Créer un salon
+                  </Link>
+
+                  {isAdmin && (
+                    <Link 
+                      to="/review" 
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex items-center gap-3 px-4 py-2 text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+                    >
+                      <Inbox className="w-4 h-4" /> Vérifier questions
+                    </Link>
+                  )}
+
+                  <button 
+                    onClick={() => {
+                      localStorage.removeItem('twitch_user');
+                      setTwitchUser(null);
+                      setIsMenuOpen(false);
+                      navigate('/');
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+                  >
+                    <LogIn className="w-4 h-4 rotate-180" /> Déconnexion
+                  </button>
                 </div>
               )}
-            </Link>
+            </div>
           ) : (
             <button onClick={handleTwitchLogin} className="flex items-center gap-2 bg-[#9146FF] hover:bg-[#772CE8] px-4 py-2 rounded-full font-medium text-sm transition-colors">
               <LogIn className="w-4 h-4" />

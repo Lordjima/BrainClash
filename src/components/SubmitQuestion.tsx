@@ -5,32 +5,36 @@ import { Send, ArrowLeft, CheckCircle } from 'lucide-react';
 import { Theme } from '../types';
 import Logo from './Logo';
 
+import { useData } from '../DataContext';
+
 export default function SubmitQuestion() {
   const navigate = useNavigate();
+  const { themes } = useData();
   const [text, setText] = useState('');
   const [options, setOptions] = useState(['', '', '', '']);
   const [correctOptionIndex, setCorrectOptionIndex] = useState(0);
   const [theme, setTheme] = useState('general');
   const [customTheme, setCustomTheme] = useState('');
   const [submitted, setSubmitted] = useState(false);
-  const [themes, setThemes] = useState<Record<string, Theme>>({});
 
   useEffect(() => {
-    socket.emit('get_themes');
-    socket.on('themes_list', (list) => {
-      setThemes(list);
-      if (Object.keys(list).length > 0 && !list['general']) {
-        setTheme(Object.keys(list)[0]);
-      }
-    });
-    return () => {
-      socket.off('themes_list');
-    };
-  }, []);
+    if (Object.keys(themes).length > 0 && !themes['general']) {
+      setTheme(Object.keys(themes)[0]);
+    }
+  }, [themes]);
 
-  const twitchUser = localStorage.getItem('twitch_user') 
-    ? JSON.parse(localStorage.getItem('twitch_user')!) 
-    : null;
+  const getTwitchUser = () => {
+    const stored = localStorage.getItem('twitch_user');
+    if (!stored) return null;
+    try {
+      return JSON.parse(stored);
+    } catch (err) {
+      localStorage.removeItem('twitch_user');
+      return null;
+    }
+  };
+
+  const twitchUser = getTwitchUser();
 
   const handleOptionChange = (index: number, value: string) => {
     const newOptions = [...options];
@@ -87,13 +91,13 @@ export default function SubmitQuestion() {
   }
 
   return (
-    <div className="min-h-screen bg-transparent text-white p-6">
-      <div className="max-w-2xl mx-auto">
-        <div className="flex items-center gap-4 mb-8">
+    <div className="h-full bg-transparent text-white p-6 overflow-hidden">
+      <div className="max-w-2xl mx-auto h-full flex flex-col overflow-hidden">
+        <div className="flex items-center gap-4 mb-8 shrink-0">
           <h1 className="text-3xl font-bold">Proposer une question</h1>
         </div>
 
-        <div className="bg-zinc-900 p-8 rounded-3xl border border-zinc-800 shadow-xl">
+        <div className="bg-zinc-900 p-8 rounded-3xl border border-zinc-800 shadow-xl flex-1 overflow-y-auto custom-scrollbar">
           {submitted ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <CheckCircle className="w-16 h-16 text-green-500 mb-4" />

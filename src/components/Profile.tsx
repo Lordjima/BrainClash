@@ -1,55 +1,48 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Home, LogOut, User, Coins, Shield, EyeOff, RefreshCcw, Star, Award, Zap } from 'lucide-react';
+import { Home, LogOut, User, Coins, Shield, EyeOff, RefreshCcw, Star, Award, Zap, Heart, TrendingUp, ShoppingBag } from 'lucide-react';
 import Logo from './Logo';
 import { socket } from '../lib/socket';
-import type { GlobalLeaderboardEntry, ShopItem } from '../types';
-
-const SHOP_ITEMS: ShopItem[] = [
-  { id: 'fumigene', name: 'Fumigène', description: 'Floute l\'écran des adversaires pendant 5s', price: 50, icon: 'EyeOff', type: 'attack' },
-  { id: 'seisme', name: 'Séisme', description: 'Fait trembler l\'écran des adversaires', price: 75, icon: 'Zap', type: 'attack' },
-  { id: 'inversion', name: 'Inversion', description: 'Met l\'écran des adversaires à l\'envers', price: 100, icon: 'RefreshCcw', type: 'attack' },
-  { id: 'bouclier', name: 'Bouclier', description: 'Protège contre la prochaine attaque', price: 50, icon: 'Shield', type: 'defense' }
-];
-
-const BADGES_INFO: Record<string, { label: string, icon: React.ReactNode, color: string }> = {
-  'first_game': { label: 'Nouveau Joueur', icon: <Star className="w-5 h-5" />, color: 'text-yellow-400 bg-yellow-400/10' },
-  'veteran': { label: 'Vétéran (10 parties)', icon: <Award className="w-5 h-5" />, color: 'text-blue-400 bg-blue-400/10' },
-  'expert': { label: 'Expert (50 parties)', icon: <Award className="w-5 h-5" />, color: 'text-purple-400 bg-purple-400/10' },
-  'champion': { label: 'Champion (1ère victoire)', icon: <TrophyIcon className="w-5 h-5" />, color: 'text-fuchsia-400 bg-fuchsia-400/10' }
-};
-
-function TrophyIcon(props: any) {
-  return (
-    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
-      <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
-      <path d="M4 22h16" />
-      <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
-      <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
-      <path d="M18 2H6v7c0 3.31 2.69 6 6 6s6-2.69 6-6V2Z" />
-    </svg>
-  );
-}
+import type { GlobalLeaderboardEntry, ShopItem, Badge } from '../types';
+import * as LucideIcons from 'lucide-react';
 
 export default function Profile() {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<GlobalLeaderboardEntry | null>(null);
+  const [allBadges, setAllBadges] = useState<Badge[]>([]);
+  const [shopItems, setShopItems] = useState<ShopItem[]>([]);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('twitch_user');
     if (storedUser) {
-      const parsedUser = JSON.parse(storedUser);
-      setUser(parsedUser);
-      socket.emit('get_profile', parsedUser.display_name);
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+        socket.emit('get_profile', parsedUser.display_name);
+      } catch (err) {
+        console.error('Error parsing twitch_user from localStorage:', err);
+        localStorage.removeItem('twitch_user');
+      }
     }
 
     socket.on('profile_data', (data: GlobalLeaderboardEntry) => {
       setProfile(data);
     });
 
+    socket.on('bootstrap_data', (data: { allBadges: Badge[], shopItems: ShopItem[] }) => {
+      if (data.allBadges) {
+        setAllBadges(data.allBadges);
+      }
+      if (data.shopItems) {
+        setShopItems(data.shopItems);
+      }
+    });
+
+    socket.emit('request_bootstrap_data');
+
     return () => {
       socket.off('profile_data');
+      socket.off('bootstrap_data');
     };
   }, []);
 
@@ -71,160 +64,193 @@ export default function Profile() {
     }
   };
 
-  const getIcon = (iconName: string) => {
-    switch (iconName) {
-      case 'EyeOff': return <EyeOff className="w-6 h-6" />;
-      case 'Zap': return <Zap className="w-6 h-6" />;
-      case 'RefreshCcw': return <RefreshCcw className="w-6 h-6" />;
-      case 'Shield': return <Shield className="w-6 h-6" />;
-      default: return <Star className="w-6 h-6" />;
-    }
+  const getIcon = (iconName: string, size = "w-6 h-6") => {
+    const Icon = (LucideIcons as any)[iconName] || Star;
+    return <Icon className={size} />;
   };
 
   return (
-    <div className="min-h-screen bg-transparent text-white flex flex-col items-center py-12 px-6">
-      <div className="max-w-4xl w-full grid grid-cols-1 md:grid-cols-3 gap-8">
-        {/* Left Column: Profile Info */}
-        <div className="bg-zinc-900 p-8 rounded-3xl border border-zinc-800 shadow-xl text-center flex flex-col items-center h-fit">
-          <div className="flex justify-center items-center w-full mb-8">
-            <h2 className="text-2xl font-bold">Mon Profil</h2>
-          </div>
-
-          {user ? (
-            <>
-              {user.profile_image_url ? (
-                <img 
-                  src={user.profile_image_url} 
-                  alt={user.display_name} 
-                  className="w-32 h-32 rounded-full border-4 border-fuchsia-500 mb-4"
-                  referrerPolicy="no-referrer"
-                />
-              ) : (
-                <div className="w-32 h-32 rounded-full bg-zinc-800 flex items-center justify-center mb-4">
-                  <User className="w-16 h-16 text-zinc-500" />
+    <div className="h-full px-6 pb-6 bg-transparent overflow-hidden">
+      <div className="max-w-7xl mx-auto h-full grid grid-cols-1 lg:grid-cols-12 gap-8 overflow-y-auto lg:overflow-hidden custom-scrollbar py-4">
+        
+        {/* Left Column: Stats & Profile */}
+        <div className="lg:col-span-4 flex flex-col">
+          <div className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-8 text-center relative overflow-hidden flex-1 flex flex-col justify-center">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-purple-600/10 blur-[60px] -mr-16 -mt-16" />
+            
+            {user ? (
+              <>
+                <div className="relative inline-block mb-4">
+                  <img 
+                    src={user.profile_image_url} 
+                    alt="" 
+                    className="w-24 h-24 rounded-full border-4 border-purple-500/50 p-1"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute -bottom-2 -right-2 bg-purple-600 text-white text-[10px] font-black px-2 py-1 rounded-lg border-2 border-zinc-900">
+                    LVL {profile?.level || 1}
+                  </div>
                 </div>
-              )}
-              
-              <h3 className="text-3xl font-bold mb-1">{user.display_name}</h3>
-              
-              {profile && (
-                <div className="flex items-center gap-2 mb-6">
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${profile.is_sub ? 'bg-fuchsia-500/20 text-fuchsia-400 border border-fuchsia-500/50' : 'bg-zinc-800 text-zinc-400'}`}>
-                    {profile.is_sub ? 'Abonné (Sub)' : 'Non-Abonné'}
+
+                <h2 className="text-2xl font-black mb-1 tracking-tight">{user.display_name}</h2>
+                <div className="flex items-center justify-center gap-2 mb-6">
+                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest ${profile?.is_sub ? 'bg-purple-500 text-white' : 'bg-zinc-800 text-zinc-500'}`}>
+                    {profile?.is_sub ? 'Abonné Premium' : 'Joueur Standard'}
                   </span>
-                  <button onClick={handleToggleSub} className="text-xs underline text-zinc-500 hover:text-white">
+                  <button onClick={handleToggleSub} className="text-[10px] font-bold text-zinc-600 hover:text-white transition-colors uppercase">
                     (Simuler)
                   </button>
                 </div>
-              )}
 
-              {profile && (
-                <div className="w-full bg-zinc-950 rounded-2xl p-4 mb-6 border border-zinc-800">
-                  <div className="flex items-center justify-center gap-2 text-yellow-400 font-bold text-2xl">
-                    <Coins className="w-6 h-6" />
-                    {profile.coins} Points
-                  </div>
-                  <p className="text-xs text-zinc-500 mt-2">Les Subs gagnent 2x plus de points !</p>
-                </div>
-              )}
-
-              {profile && profile.badges && profile.badges.length > 0 && (
-                <div className="w-full mb-6">
-                  <h4 className="text-sm font-bold text-zinc-400 uppercase tracking-widest mb-3 text-left">Badges</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {profile.badges.map(badgeId => {
-                      const b = BADGES_INFO[badgeId];
-                      if (!b) return null;
-                      return (
-                        <div key={badgeId} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium ${b.color}`} title={b.label}>
-                          {b.icon}
-                          {b.label}
-                        </div>
-                      );
-                    })}
+                <div className="space-y-4">
+                  {/* XP Bar */}
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                      <span>Expérience</span>
+                      <span>{profile?.xp || 0} / {(profile?.level || 1) * 1000}</span>
+                    </div>
+                    <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-purple-500 transition-all duration-1000" 
+                        style={{ width: `${((profile?.xp || 0) % 1000) / 10}%` }}
+                      />
+                    </div>
                   </div>
                 </div>
-              )}
 
-              <button
-                onClick={handleLogout}
-                className="w-full bg-red-500/10 hover:bg-red-500/20 text-red-500 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors mt-auto"
-              >
-                <LogOut className="w-5 h-5" />
-                Se déconnecter
-              </button>
-            </>
-          ) : (
-            <div className="py-12">
-              <p className="text-zinc-400 mb-6">Vous n'êtes pas connecté.</p>
-              <Link to="/" className="bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-bold py-3 px-6 rounded-xl transition-colors inline-block">
-                Retour à l'accueil
-              </Link>
-            </div>
-          )}
+                <div className="grid grid-cols-2 gap-3 mt-8">
+                  <div className="bg-zinc-950/50 border border-zinc-800 rounded-2xl p-3 text-left">
+                    <div className="flex items-center gap-2 text-amber-500 mb-1">
+                      <Coins className="w-4 h-4" />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Coins</span>
+                    </div>
+                    <div className="text-xl font-black font-mono">{profile?.coins || 0}</div>
+                  </div>
+                  <div className="bg-zinc-950/50 border border-zinc-800 rounded-2xl p-3 text-left">
+                    <div className="flex items-center gap-2 text-fuchsia-400 mb-1">
+                      <div className="w-4 h-4 bg-fuchsia-500 rounded-full flex items-center justify-center text-[8px] font-black text-white">B</div>
+                      <span className="text-[10px] font-black uppercase tracking-widest">BrainCoins</span>
+                    </div>
+                    <div className="text-xl font-black font-mono">{profile?.brainCoins || 0}</div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleLogout}
+                  className="w-full mt-8 bg-zinc-800 hover:bg-red-600 text-white py-3 rounded-2xl font-black text-xs transition-all flex items-center justify-center gap-2 group"
+                >
+                  <LogOut className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                  DÉCONNEXION
+                </button>
+              </>
+            ) : (
+              <div className="py-12">
+                <p className="text-zinc-500 font-bold mb-6">Connectez-vous pour voir votre progression.</p>
+                <Link to="/" className="bg-white text-black px-8 py-3 rounded-2xl font-black transition-all active:scale-95">
+                  RETOUR
+                </Link>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Right Column: Shop */}
-        {user && profile && (
-          <div className="md:col-span-2 bg-zinc-900 p-8 rounded-3xl border border-zinc-800 shadow-xl">
-            <div className="flex items-center gap-3 mb-8">
-              <div className="p-3 bg-fuchsia-500/20 rounded-xl">
-                <Coins className="w-8 h-8 text-fuchsia-400" />
-              </div>
-              <div>
-                <h2 className="text-3xl font-bold">Boutique</h2>
-                <p className="text-zinc-400">Achetez des objets pour pimenter vos parties !</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {SHOP_ITEMS.map(item => {
-                const price = profile.is_sub ? Math.floor(item.price * 0.8) : item.price;
-                const canAfford = profile.coins >= price;
-                const inventoryCount = profile.inventory.filter(id => id === item.id).length;
-
-                return (
-                  <div key={item.id} className="bg-zinc-950 border border-zinc-800 rounded-2xl p-5 flex flex-col">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className={`p-3 rounded-xl ${item.type === 'attack' ? 'bg-red-500/10 text-red-400' : 'bg-blue-500/10 text-blue-400'}`}>
-                        {getIcon(item.icon)}
+        {/* Right Column: Inventory & Shop */}
+        <div className="lg:col-span-8 flex flex-col gap-8 overflow-y-auto custom-scrollbar pr-2">
+          {/* Badges Section */}
+          <div className="bg-zinc-900/30 border border-zinc-800/50 rounded-3xl p-8">
+            <h2 className="text-xl font-black mb-6 flex items-center gap-2">
+              <Award className="w-5 h-5 text-purple-500" />
+              MES BADGES
+            </h2>
+            
+            {allBadges.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {allBadges.map(badge => {
+                  const isEarned = profile?.badges?.includes(badge.id);
+                  return (
+                    <div 
+                      key={badge.id} 
+                      className={`bg-zinc-950/50 border border-zinc-800 rounded-2xl p-4 flex flex-col items-center text-center group transition-all ${
+                        isEarned ? 'opacity-100' : 'opacity-40 grayscale'
+                      }`}
+                      title={badge.description}
+                    >
+                      <div className={`w-10 h-10 rounded-xl bg-zinc-900 flex items-center justify-center mb-3 ${
+                        isEarned ? 'text-purple-400' : 'text-zinc-600'
+                      }`}>
+                        {getIcon(badge.icon, "w-5 h-5")}
                       </div>
-                      <div className="flex flex-col items-end">
-                        <div className="flex items-center gap-1 font-bold text-yellow-400 bg-yellow-400/10 px-3 py-1 rounded-full">
-                          <Coins className="w-4 h-4" />
-                          {price}
-                        </div>
-                        {profile.is_sub && (
-                          <span className="text-[10px] text-fuchsia-400 font-bold mt-1 line-through opacity-50">{item.price}</span>
-                        )}
+                      <div className={`text-[10px] font-black uppercase tracking-tight truncate w-full ${
+                        isEarned ? 'text-white' : 'text-zinc-500'
+                      }`}>
+                        {badge.name}
+                      </div>
+                      <div className="text-[8px] font-bold text-zinc-600 mt-1">
+                        {isEarned ? 'DÉBLOQUÉ' : 'VERROUILLÉ'}
                       </div>
                     </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="py-12 text-center bg-zinc-950/30 rounded-2xl border border-dashed border-zinc-800">
+                <p className="text-zinc-600 font-bold">Aucun badge acquis pour le moment.</p>
+              </div>
+            )}
+          </div>
+
+          {/* Shop Section */}
+          <div className="bg-zinc-900/30 border border-zinc-800/50 rounded-3xl p-8">
+            <h2 className="text-xl font-black mb-6 flex items-center gap-2">
+              <ShoppingBag className="w-5 h-5 text-fuchsia-500" />
+              BOUTIQUE D'OBJETS
+            </h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {shopItems.map(item => {
+                const price = profile?.is_sub ? Math.floor(item.price * 0.8) : item.price;
+                const canAfford = (profile?.coins || 0) >= price;
+                const inventoryCount = profile?.inventory.filter(id => id === item.id).length || 0;
+
+                return (
+                  <div key={item.id} className="bg-zinc-950/50 border border-zinc-800 rounded-2xl p-4 flex gap-4 group">
+                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shrink-0 ${
+                      item.type === 'attack' ? 'bg-red-500/10 text-red-500' : 'bg-blue-500/10 text-blue-500'
+                    }`}>
+                      {getIcon(item.icon, "w-8 h-8")}
+                    </div>
                     
-                    <h3 className="text-xl font-bold mb-1">{item.name}</h3>
-                    <p className="text-sm text-zinc-400 mb-6 flex-1">{item.description}</p>
-                    
-                    <div className="flex items-center justify-between mt-auto">
-                      <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">
-                        Possédé: <span className="text-white">{inventoryCount}</span>
-                      </span>
-                      <button
-                        onClick={() => handleBuy(item.id, price)}
-                        disabled={!canAfford}
-                        className={`px-4 py-2 rounded-xl font-bold text-sm transition-colors ${
-                          canAfford 
-                            ? 'bg-fuchsia-600 hover:bg-fuchsia-500 text-white' 
-                            : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
-                        }`}
-                      >
-                        Acheter
-                      </button>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start mb-1">
+                        <h3 className="font-black text-sm">{item.name}</h3>
+                        <div className="flex items-center gap-1 text-amber-500 font-mono text-xs font-bold">
+                          <Coins className="w-3 h-3" />
+                          {price}
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-zinc-500 mb-3 line-clamp-2">{item.description}</p>
+                      
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] font-black text-zinc-600 uppercase">En stock: {inventoryCount}</span>
+                        <button
+                          onClick={() => handleBuy(item.id, price)}
+                          disabled={!canAfford}
+                          className={`px-4 py-1.5 rounded-lg font-black text-[10px] transition-all ${
+                            canAfford 
+                              ? 'bg-white text-black hover:bg-zinc-200' 
+                              : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
+                          }`}
+                        >
+                          ACHETER
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
               })}
             </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

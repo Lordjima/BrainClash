@@ -179,12 +179,12 @@ export default function Dashboard() {
   const sortedLeaderboard = (Object.values(state.leaderboard) as Player[]).sort((a, b) => b.score - a.score);
 
   return (
-    <div className="min-h-screen bg-transparent text-white p-6">
-      <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="min-h-screen bg-transparent text-white p-4">
+      <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-4">
         
         {/* Main Control Panel */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-zinc-900 rounded-2xl p-6 border border-zinc-800 flex items-center justify-between">
+        <div className="lg:col-span-2 space-y-4">
+          <div className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800 flex items-center justify-between">
             <div>
               <h2 className="text-xl font-bold flex items-center gap-2">
                 <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
@@ -211,7 +211,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="bg-zinc-900 rounded-2xl p-8 border border-zinc-800 min-h-[400px] flex flex-col">
+          <div className="bg-zinc-900 rounded-2xl p-6 border border-zinc-800 min-h-[300px] flex flex-col">
             {state.status === 'finished' ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center">
                 <div className="w-20 h-20 bg-purple-600/20 rounded-full flex items-center justify-center mb-4">
@@ -285,7 +285,7 @@ export default function Dashboard() {
         </div>
 
         {/* Leaderboard Sidebar */}
-        <div className="bg-zinc-900 rounded-2xl p-6 border border-zinc-800 flex flex-col h-[calc(100vh-3rem)]">
+        <div className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800 flex flex-col h-[calc(100vh-2rem)]">
           <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
             <Users className="w-5 h-5 text-purple-500" />
             Classement en direct

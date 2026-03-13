@@ -8,8 +8,8 @@ import dotenv from 'dotenv';
 // Load environment variables from .env file (for local development)
 dotenv.config();
 
-import type { Question, Player, RoomState, GlobalLeaderboardEntry, SubmittedQuestion, Theme } from './src/types.ts';
-import { initDB, getLeaderboard, getPendingQuestions, addSubmittedQuestion, updateSubmittedQuestionStatus, getThemesWithQuestions, addTheme, addQuestion, getUserProfile, updateUserProfile, buyItem, useItem, toggleSubStatus, batchUpdateUserProfiles } from './src/lib/db.ts';
+import type { Question, Player, RoomState, GlobalLeaderboardEntry, SubmittedQuestion, Theme } from './src/types';
+import { initDB, getLeaderboard, getPendingQuestions, addSubmittedQuestion, updateSubmittedQuestionStatus, getThemesWithQuestions, addTheme, addQuestion, getUserProfile, updateUserProfile, buyItem, useItem, toggleSubStatus, batchUpdateUserProfiles, getAllBadges, getShopItems, awardBadgeXp, getAuctionItems, openLootBox, listItemForAuction } from './src/lib/db';
 
 let globalLeaderboard: GlobalLeaderboardEntry[] = [];
 let pendingQuestionsCache: SubmittedQuestion[] | null = null;
@@ -157,7 +157,14 @@ function scheduleNextQuestion(roomId: string, io: Server) {
 }
 
 async function startServer() {
+  console.log('Starting server...');
   const app = express();
+  app.use(express.json());
+
+  app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', time: new Date().toISOString() });
+  });
+
   const httpServer = createServer(app);
   const io = new Server(httpServer, {
     cors: { origin: '*' }
@@ -242,8 +249,36 @@ async function startServer() {
     }
   });
 
-  io.on('connection', (socket) => {
+  io.on('connection', async (socket) => {
     console.log('Client connected:', socket.id);
+
+    // Send initial data to avoid multiple requests from client
+    try {
+      const [leaderboard, themes, allBadges, shopItems] = await Promise.all([
+        getLeaderboard(),
+        getCachedThemes(),
+        getAllBadges(),
+        getShopItems()
+      ]);
+      socket.emit('bootstrap_data', { leaderboard, themes, allBadges, shopItems });
+    } catch (err) {
+      console.error('Error sending bootstrap data:', err);
+    }
+
+    socket.on('request_bootstrap_data', async () => {
+      try {
+        console.log('📡 Sending bootstrap data to client...');
+        const [leaderboard, themes, allBadges, shopItems] = await Promise.all([
+          getLeaderboard(),
+          getCachedThemes(),
+          getAllBadges(),
+          getShopItems()
+        ]);
+        socket.emit('bootstrap_data', { leaderboard, themes, allBadges, shopItems });
+      } catch (err) {
+        console.error('Error sending requested bootstrap data:', err);
+      }
+    });
 
     // --- Community Questions ---
     socket.on('submit_question', async (questionData: Omit<SubmittedQuestion, 'id' | 'status'>) => {
@@ -267,7 +302,11 @@ async function startServer() {
       socket.emit('themes_list', themes);
     });
 
-    socket.on('review_question', async ({ id, action, theme }: { id: string, action: 'approve' | 'reject', theme?: string }) => {
+    socket.on('review_question', async ({ id, action, theme, username }: { id: string, action: 'approve' | 'reject', theme?: string, username: string }) => {
+      if (username !== 'JimaG4ming') {
+        return socket.emit('error', 'Seul JimaG4ming peut valider les questions.');
+      }
+      
       const pending = await getCachedPendingQuestions();
       const qIndex = pending.findIndex(q => q.id === id);
       
@@ -370,7 +409,7 @@ async function startServer() {
       socket.emit('room_created', roomId);
     });
 
-    socket.on('join_room', ({ roomId, username, avatar }) => {
+    socket.on('join_room', async ({ roomId, username, avatar }) => {
       const room = rooms.get(roomId.toUpperCase());
       if (!room) {
         return socket.emit('error', 'Salon introuvable');
@@ -382,13 +421,17 @@ async function startServer() {
       const colors = ['#FF5733', '#33FF57', '#3357FF', '#F033FF', '#33FFF0', '#FFC300', '#FF33A8'];
       const color = colors[Object.keys(room.players).length % colors.length];
 
+      const profile = await getUserProfile(username);
+
       room.players[socket.id] = {
         id: socket.id,
         username,
         avatar,
         score: 0,
         color,
-        hasAnswered: false
+        hasAnswered: false,
+        isProtected: false,
+        level: profile?.level || 1,
       };
 
       socket.join(room.id);
@@ -539,6 +582,7 @@ async function startServer() {
         Object.values(room.players).forEach(p => {
           p.score = 0;
           p.hasAnswered = false;
+          p.isProtected = false;
         });
         io.to(roomId).emit('room_restarted', {
           status: room.status,
@@ -563,9 +607,7 @@ async function startServer() {
     // --- Shop & Profile Events ---
     socket.on('get_profile', async (username) => {
       const profile = await getUserProfile(username);
-      if (profile) {
-        socket.emit('profile_data', profile);
-      }
+      socket.emit('profile_data', profile);
     });
 
     socket.on('buy_item', async ({ username, itemId, cost }) => {
@@ -590,15 +632,73 @@ async function startServer() {
       
       const success = await useItem(username, itemId);
       if (success) {
-        // Broadcast the item usage to the room
-        io.to(roomId).emit('item_used', { username, itemId });
+        if (itemId === 'bouclier') {
+          if (room.players[socket.id]) {
+            room.players[socket.id].isProtected = true;
+            socket.emit('item_used_success', { itemId, message: 'Bouclier activé !' });
+          }
+        } else {
+          // Attack logic: send to each player individually to check for shields
+          Object.entries(room.players).forEach(([playerId, player]) => {
+            if (playerId === socket.id) return; // Don't attack self
+            
+            if (player.isProtected) {
+              // Shield blocks the attack
+              player.isProtected = false;
+              io.to(playerId).emit('item_blocked', { attacker: username, itemId });
+            } else {
+              // Attack hits
+              io.to(playerId).emit('item_effect', { 
+                attacker: username, 
+                itemId,
+                effect: itemId 
+              });
+            }
+          });
+          socket.emit('item_used_success', { itemId, message: `${itemId} utilisé !` });
+        }
         
-        // Update the user's profile on their client
         const profile = await getUserProfile(username);
         socket.emit('profile_data', profile);
+      } else {
+        socket.emit('error', 'Erreur lors de l\'utilisation de l\'objet');
       }
     });
-    // -----------------------------
+
+    socket.on('award_badge_xp', async ({ username, badgeId, xp }) => {
+      await awardBadgeXp(username, badgeId, xp);
+      const profile = await getUserProfile(username);
+      socket.emit('profile_data', profile);
+    });
+
+    socket.on('open_loot_box', async ({ username, boxType }) => {
+      const result = await openLootBox(username, boxType);
+      if (result.success) {
+        const profile = await getUserProfile(username);
+        socket.emit('profile_data', profile);
+        socket.emit('loot_box_result', result);
+      } else {
+        socket.emit('error', result.message || 'Erreur lors de l\'ouverture du coffre');
+      }
+    });
+
+    socket.on('list_auction_item', async ({ username, itemId, price, currency }) => {
+      const success = await listItemForAuction(username, itemId, price, currency);
+      if (success) {
+        const profile = await getUserProfile(username);
+        socket.emit('profile_data', profile);
+        const auctions = await getAuctionItems();
+        io.emit('auction_items_list', auctions);
+        socket.emit('auction_list_success');
+      } else {
+        socket.emit('error', 'Erreur lors de la mise en vente');
+      }
+    });
+
+    socket.on('get_auction_items', async () => {
+      const auctions = await getAuctionItems();
+      socket.emit('auction_items_list', auctions);
+    });
 
     socket.on('disconnect', () => {
       // Find rooms where this socket is a player
@@ -630,15 +730,19 @@ async function startServer() {
     });
   }
 
-  // Initialize Database
-  await initDB();
-  
-  // Load initial data
-  globalLeaderboard = await getLeaderboard();
-
-  const PORT = 3000;
-  httpServer.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  const PORT = process.env.PORT || 3000;
+  httpServer.listen(Number(PORT), "0.0.0.0", async () => {
+    console.log(`Server running on port ${PORT}`);
+    
+    // Initialize Database after server is listening
+    try {
+      await initDB();
+      // Load initial data
+      globalLeaderboard = await getLeaderboard();
+      console.log('✅ Initial data loaded');
+    } catch (err) {
+      console.error('❌ Error during post-startup initialization:', err);
+    }
   });
 }
 

@@ -15,16 +15,16 @@ export type Player = {
   hasAnswered: boolean;
   answerTime?: number;
   isCorrect?: boolean;
+  isProtected?: boolean;
+  level: number;
 };
-
-export type RoomStatus = "lobby" | "active" | "finished";
 
 export type RoomState = {
   id: string;
   name?: string;
   description?: string;
   hostId: string;
-  status: RoomStatus;
+  status: 'lobby' | 'active' | 'finished';
   questions: Question[];
   currentQuestionIndex: number;
   questionStartTime: number | null;
@@ -33,6 +33,15 @@ export type RoomState = {
   showAnswer: boolean;
 };
 
+export interface Badge {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  level: number;
+  rarity: number; // Percentage of players who have it
+}
+
 export type GlobalLeaderboardEntry = {
   username: string;
   avatar?: string;
@@ -40,12 +49,22 @@ export type GlobalLeaderboardEntry = {
   games_played: number;
   date: number;
   coins: number;
+  brainCoins: number;
   is_sub: boolean;
   badges: string[];
   inventory: string[];
+  level: number;
+  xp: number;
 };
 
-export type ShopItemType = "attack" | "defense" | "bonus";
+export type AuctionItem = {
+  id: string;
+  seller: string;
+  itemId: string;
+  price: number;
+  currency: 'coins' | 'brainCoins';
+  createdAt: number;
+};
 
 export type ShopItem = {
   id: string;
@@ -53,7 +72,7 @@ export type ShopItem = {
   description: string;
   price: number;
   icon: string;
-  type: ShopItemType;
+  type: 'attack' | 'defense' | 'bonus';
 };
 
 export type Theme = {
@@ -71,8 +90,6 @@ export type SavedQuiz = {
   createdAt: number;
 };
 
-export type SubmittedQuestionStatus = "pending" | "approved" | "rejected";
-
 export type SubmittedQuestion = {
   id: string;
   text: string;
@@ -80,5 +97,5 @@ export type SubmittedQuestion = {
   correctOptionIndex: number;
   author: string;
   theme: string;
-  status: SubmittedQuestionStatus;
+  status: 'pending' | 'approved' | 'rejected';
 };
