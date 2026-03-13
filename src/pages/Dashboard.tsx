@@ -1,13 +1,16 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useQuizState, defaultQuestions, type Player } from '../lib/store';
-import { TwitchChat } from '../lib/twitch';
-import { Play, Square, FastForward, CheckCircle, Users, Settings } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { Play, Square, FastForward, CheckCircle, Users, Settings } from 'lucide-react';
+
+import { useQuizState, type Player } from '../lib/store';
+import { TwitchChat } from '../lib/twitch';
 
 export default function Dashboard() {
   const { state, updateState } = useQuizState();
+  
   const [channelInput, setChannelInput] = useState(state.channel);
   const [isConnected, setIsConnected] = useState(false);
+  
   const chatRef = useRef<TwitchChat | null>(null);
 
   // Reconnect if channel changes and status is not setup

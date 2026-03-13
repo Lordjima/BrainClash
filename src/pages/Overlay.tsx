@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { socket } from '../lib/socket';
-import { RoomState, Player } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
+
+import { socket } from '../lib/socket';
+import { RoomState, Player } from '../types';
 import Logo from '../components/Logo';
 
 export default function Overlay() {
@@ -421,4 +422,3 @@ export default function Overlay() {
     </div>
   );
 }
-

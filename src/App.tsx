@@ -15,6 +15,7 @@ import ReviewQuestions from './pages/ReviewQuestions';
 import AuctionHouse from './pages/AuctionHouse';
 import Navbar from './components/Navbar';
 import SpaceBackground from './components/SpaceBackground';
+import InventoryChat from './components/InventoryChat';
 
 import { DataProvider } from './DataContext';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -25,6 +26,7 @@ export default function App() {
       <DataProvider>
         <SpaceBackground />
         <BrowserRouter>
+        <InventoryChat onSell={(id, name) => window.location.href = `/auction-house`} />
         <Routes>
           {/* Overlay doesn't need navbar */}
           <Route path="/overlay/:id" element={<Overlay />} />

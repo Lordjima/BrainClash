@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { socket } from '../lib/socket';
 import { SavedQuiz } from '../types';
 import { useData } from '../DataContext';
-import QuizHeader from '../components/quiz/QuizHeader';
 import QuizForm from '../components/quiz/QuizForm';
 import QuizHistory from '../components/quiz/QuizHistory';
 import { motion, AnimatePresence } from 'motion/react';
@@ -82,8 +81,6 @@ export default function CreateQuiz() {
   return (
     <div className="h-full bg-transparent text-white p-4 overflow-hidden flex flex-col">
       <div className="max-w-3xl mx-auto w-full flex flex-col h-full">
-        <QuizHeader onOpenHistory={() => setIsHistoryOpen(true)} />
-
         <div className="flex-1 flex flex-col justify-center min-h-0 py-2">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -101,6 +98,7 @@ export default function CreateQuiz() {
               setTimeLimit={setTimeLimit}
               themes={themes}
               onSubmit={handleSaveAndLaunch}
+              onOpenHistory={() => setIsHistoryOpen(true)}
             />
           </motion.div>
         </div>

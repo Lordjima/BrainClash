@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { LogIn, User, Heart, Star, Coins, ChevronDown, Shield, PlusCircle, Inbox, ShoppingBag } from 'lucide-react';
+
 import Logo from './Logo';
 import { socket } from '../lib/socket';
 import { useData } from '../DataContext';

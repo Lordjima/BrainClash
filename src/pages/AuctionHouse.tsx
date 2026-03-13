@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { ShoppingBag, Coins, Search, Filter, Tag, Clock, User, ArrowRight, Package, Star, X, Box, Sparkles } from 'lucide-react';
+import { ShoppingBag, Star, X, Box, Sparkles, Tag, Package, Coins, Search, Filter, User, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { socket } from '../lib/socket';
 import { useData } from '../DataContext';
@@ -9,9 +8,7 @@ import * as LucideIcons from 'lucide-react';
 
 export default function AuctionHouse() {
   const { userProfile, shopItems } = useData();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const initialTab = (searchParams.get('tab') as 'market' | 'shop' | 'inventory') || 'market';
-  const [activeTab, setActiveTab] = useState<'market' | 'shop' | 'inventory'>(initialTab);
+  const [view, setView] = useState<'selection' | 'market' | 'shop'>('selection');
   const [items, setItems] = useState<AuctionItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [listingItem, setListingItem] = useState<{ id: string, name: string } | null>(null);
@@ -99,65 +96,49 @@ export default function AuctionHouse() {
     <div className="h-full px-4 pb-4 bg-transparent overflow-hidden">
       <div className="max-w-7xl mx-auto h-full flex flex-col space-y-4 py-2">
         
-        {/* Header & Tabs */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-zinc-800 pb-4">
-          <div className="flex flex-col md:flex-row md:items-center gap-6">
-            <div className="flex items-center gap-2">
-              <ShoppingBag className="w-6 h-6 text-fuchsia-500" />
-              <h1 className="text-lg font-black uppercase tracking-tighter italic whitespace-nowrap">
-                Marché & Boutique
-              </h1>
-            </div>
-
-            <div className="flex gap-1 bg-zinc-900/50 p-1 rounded-xl border border-zinc-800">
-              <button 
-                onClick={() => setActiveTab('market')}
-                className={`px-3 py-1.5 rounded-lg font-black text-[10px] uppercase transition-all flex items-center gap-2 ${
-                  activeTab === 'market' ? 'bg-white text-black shadow-lg' : 'text-zinc-500 hover:text-white'
-                }`}
-              >
-                <Tag className="w-3 h-3" />
-                Hôtel des Ventes
-              </button>
-              <button 
-                onClick={() => setActiveTab('shop')}
-                className={`px-3 py-1.5 rounded-lg font-black text-[10px] uppercase transition-all flex items-center gap-2 ${
-                  activeTab === 'shop' ? 'bg-white text-black shadow-lg' : 'text-zinc-500 hover:text-white'
-                }`}
-              >
-                <Box className="w-3 h-3" />
-                Boutique
-              </button>
-              <button 
-                onClick={() => setActiveTab('inventory')}
-                className={`px-3 py-1.5 rounded-lg font-black text-[10px] uppercase transition-all flex items-center gap-2 ${
-                  activeTab === 'inventory' ? 'bg-white text-black shadow-lg' : 'text-zinc-500 hover:text-white'
-                }`}
-              >
-                <Package className="w-3 h-3" />
-                Inventaire
-              </button>
-            </div>
+        {/* Header */}
+        <div className="flex flex-col items-center justify-center gap-4 border-b border-zinc-800 pb-4">
+          <div className="flex items-center gap-2">
+            <ShoppingBag className="w-6 h-6 text-fuchsia-500" />
+            <h1 className="text-lg font-black uppercase tracking-tighter italic whitespace-nowrap">
+              {view === 'selection' ? 'Marché & Boutique' : view === 'market' ? 'Hôtel des Ventes' : 'Boutique'}
+            </h1>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="bg-zinc-950/50 border border-zinc-800 rounded-xl px-3 py-1.5 flex items-center gap-2">
-              <Coins className="w-4 h-4 text-amber-500" />
-              <span className="font-mono font-bold text-amber-500 text-sm">{userProfile?.coins || 0}</span>
-            </div>
-            <div className="flex items-center gap-2 bg-zinc-950/50 border border-zinc-800 rounded-xl px-3 py-1.5">
-              <div className="w-4 h-4 bg-fuchsia-500 rounded-full flex items-center justify-center text-[8px] font-black text-white">B</div>
-              <span className="font-mono font-bold text-fuchsia-400 text-sm">{userProfile?.brainCoins || 0}</span>
-            </div>
-          </div>
+          {view !== 'selection' && (
+            <button 
+              onClick={() => setView('selection')}
+              className="text-[10px] font-bold text-zinc-500 hover:text-white uppercase tracking-widest transition-colors"
+            >
+              ← Retour au choix
+            </button>
+          )}
         </div>
 
-        <div className="flex-1 flex flex-col gap-4 overflow-hidden">
-          {/* Main Area */}
-          <div className="flex-1 flex flex-col gap-4 overflow-hidden">
-            {activeTab === 'market' ? (
-              <>
-                {/* Search & Filter */}
+        {/* Main Area */}
+        <div className="flex-1 overflow-hidden">
+          <div className="flex flex-col gap-4 overflow-hidden h-full">
+            {view === 'selection' ? (
+              <div className="flex-1 flex items-center justify-center gap-8">
+                <motion.button 
+                  whileHover={{ scale: 1.05 }}
+                  onClick={() => setView('market')}
+                  className="bg-zinc-900 border border-zinc-800 rounded-[40px] p-12 flex flex-col items-center gap-6 group"
+                >
+                  <Tag className="w-24 h-24 text-fuchsia-500" />
+                  <span className="text-2xl font-black uppercase italic">Marché</span>
+                </motion.button>
+                <motion.button 
+                  whileHover={{ scale: 1.05 }}
+                  onClick={() => setView('shop')}
+                  className="bg-zinc-900 border border-zinc-800 rounded-[40px] p-12 flex flex-col items-center gap-6 group"
+                >
+                  <Box className="w-24 h-24 text-amber-500" />
+                  <span className="text-2xl font-black uppercase italic">Boutique</span>
+                </motion.button>
+              </div>
+            ) : view === 'market' ? (
+              <div className="flex flex-col gap-4 h-full">
                 <div className="flex flex-col md:flex-row gap-4">
                   <div className="flex-1 relative">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
@@ -175,7 +156,6 @@ export default function AuctionHouse() {
                   </button>
                 </div>
 
-                {/* Items Grid */}
                 <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
                   {filteredItems.length === 0 ? (
                     <div className="py-24 text-center space-y-4 bg-zinc-900/20 border border-dashed border-zinc-800 rounded-3xl">
@@ -188,7 +168,7 @@ export default function AuctionHouse() {
                       </div>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                       {filteredItems.map((item) => {
                         const shopItem = shopItems.find(si => si.id === item.itemId);
                         return (
@@ -212,7 +192,7 @@ export default function AuctionHouse() {
                             <div className="flex items-center justify-between pt-4 border-t border-zinc-800">
                               <div className="flex items-center gap-2">
                                 {item.currency === 'coins' ? (
-                                  <Coins className="w-4 h-4 text-amber-500" />
+                                  <div className="w-4 h-4 text-amber-500" />
                                 ) : (
                                   <div className="w-4 h-4 bg-fuchsia-500 rounded-full flex items-center justify-center text-[8px] font-black text-white">B</div>
                                 )}
@@ -220,7 +200,10 @@ export default function AuctionHouse() {
                                   {item.price}
                                 </span>
                               </div>
-                              <button className="p-2 bg-zinc-800 rounded-xl hover:bg-white hover:text-black transition-all">
+                              <button 
+                                onClick={() => setListingItem({ id: item.itemId, name: shopItems.find(si => si.id === item.itemId)?.name || item.itemId })}
+                                className="p-2 bg-zinc-800 rounded-xl hover:bg-white hover:text-black transition-all"
+                              >
                                 <ArrowRight className="w-4 h-4" />
                               </button>
                             </div>
@@ -230,11 +213,10 @@ export default function AuctionHouse() {
                     </div>
                   )}
                 </div>
-              </>
-            ) : activeTab === 'shop' ? (
+              </div>
+            ) : (
               <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-4">
-                  {/* Standard Box */}
                   <motion.div 
                     whileHover={{ y: -10 }}
                     className="bg-zinc-900/50 border border-zinc-800 rounded-[40px] p-6 flex flex-col items-center text-center space-y-4 relative overflow-hidden group"
@@ -257,7 +239,6 @@ export default function AuctionHouse() {
                     </button>
                   </motion.div>
 
-                  {/* Premium Box */}
                   <motion.div 
                     whileHover={{ y: -10 }}
                     className="bg-zinc-900/50 border border-zinc-800 rounded-[40px] p-6 flex flex-col items-center text-center space-y-4 relative overflow-hidden group"
@@ -281,54 +262,11 @@ export default function AuctionHouse() {
                   </motion.div>
                 </div>
               </div>
-            ) : (
-              <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 py-4">
-                  {userProfile?.inventory && userProfile.inventory.length > 0 ? (
-                    userProfile.inventory.map((itemId, idx) => {
-                      const item = shopItems.find(si => si.id === itemId);
-                      return (
-                        <motion.div 
-                          key={`${itemId}-${idx}`}
-                          whileHover={{ y: -5 }}
-                          className="bg-zinc-900/40 border border-zinc-800 rounded-3xl p-6 flex flex-col items-center text-center space-y-4 group"
-                        >
-                          <div className={`w-20 h-20 rounded-2xl flex items-center justify-center border border-zinc-800 group-hover:border-fuchsia-500/50 transition-colors ${
-                            item?.type === 'attack' ? 'bg-red-500/5 text-red-500' : 'bg-blue-500/5 text-blue-500'
-                          }`}>
-                            {item ? getIcon(item.icon, "w-10 h-10") : <Package className="w-10 h-10" />}
-                          </div>
-                          <div className="space-y-1">
-                            <h3 className="font-black text-lg">{item?.name || itemId}</h3>
-                            <div className="text-xs text-zinc-500 uppercase font-bold tracking-widest">{item?.type || 'Objet'}</div>
-                          </div>
-                          <button 
-                            onClick={() => setListingItem({ id: itemId, name: item?.name || itemId })}
-                            className="w-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white py-3 rounded-xl font-black text-sm transition-all flex items-center justify-center gap-2"
-                          >
-                            <Tag className="w-4 h-4" />
-                            METTRE EN VENTE
-                          </button>
-                        </motion.div>
-                      );
-                    })
-                  ) : (
-                    <div className="col-span-full py-24 text-center space-y-4 bg-zinc-900/20 border border-dashed border-zinc-800 rounded-3xl">
-                      <div className="w-16 h-16 bg-zinc-900 rounded-full flex items-center justify-center mx-auto">
-                        <Package className="w-8 h-8 text-zinc-700" />
-                      </div>
-                      <div className="space-y-1">
-                        <h3 className="text-xl font-bold text-zinc-400">Inventaire vide</h3>
-                        <p className="text-zinc-600 max-w-xs mx-auto">Achetez des coffres ou des objets au marché pour remplir votre sac !</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
             )}
           </div>
         </div>
       </div>
+      {/* Listing Modal & Loot Box Overlays (keep as before) */}
 
       {/* Listing Modal */}
       <AnimatePresence>

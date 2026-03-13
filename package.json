@@ -7,12 +7,12 @@
     "dev": "tsx server/index.ts",
     "build": "npm run build:client && npm run build:server",
     "build:client": "vite build",
-    "build:server": "esbuild server/index.ts --bundle --platform=node --target=node20 --outfile=dist-server/index.cjs --format=cjs --external:mysql2 --external:vite --external:lightningcss",
+    "build:server": "esbuild server/index.ts --bundle --platform=node --target=node20 --outfile=server.index.js --format=esm --external:mysql2 --external:vite --external:lightningcss",
     "preview": "vite preview",
     "clean": "rm -rf dist dist-server",
     "lint": "tsc --noEmit",
     "postinstall": "npm run build",
-    "start": "cross-env NODE_ENV=production node dist-server/index.cjs",
+    "start": "cross-env NODE_ENV=production node server.index.js",
     "seed": "tsx scripts/seed.ts"
   },
   "dependencies": {

@@ -1,20 +1,39 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Users, Trophy, Award, ChevronRight, User, Star, ShoppingBag } from 'lucide-react';
+import { 
+  Users, 
+  Trophy, 
+  Award, 
+  ChevronRight, 
+  User, 
+  Star, 
+  ShoppingBag, 
+  Plus, 
+  Info, 
+  Zap, 
+  TrendingUp, 
+  Coins, 
+  Package, 
+  X, 
+  Backpack 
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import * as LucideIcons from 'lucide-react';
+
 import { socket } from '../lib/socket';
 import { useData } from '../DataContext';
 import { Badge as BadgeType } from '../types';
-import * as LucideIcons from 'lucide-react';
 import Logo from '../components/Logo';
 
 export default function Home() {
   const navigate = useNavigate();
   const { leaderboard, isLoaded, userProfile, shopItems } = useData();
+  
   const [roomCode, setRoomCode] = useState('');
   const [error, setError] = useState('');
   const [twitchUser, setTwitchUser] = useState<any>(null);
   const [allBadges, setAllBadges] = useState<BadgeType[]>([]);
+  
   const [showRules, setShowRules] = useState(false);
   const [showBag, setShowBag] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
@@ -122,57 +141,57 @@ export default function Home() {
             </p>
           </motion.div>
         ) : (
-            <motion.div 
+          <motion.div 
             key="main"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex-1 p-3 md:p-4 flex flex-col min-h-0"
+            className="flex-1 flex flex-col min-h-screen w-full"
           >
-            {/* Main Content Card - Fits exactly without scroll */}
-            <div className="flex-1 w-full max-w-7xl mx-auto bg-zinc-900/40 border border-zinc-800/50 rounded-[24px] md:rounded-[40px] relative overflow-hidden shadow-2xl backdrop-blur-sm flex flex-col items-center justify-center p-3 md:p-4">
-              
+            {/* Left Sidebar */}
+            <div className="hidden md:flex fixed left-0 top-0 h-full w-[250px] bg-zinc-950/30 border-r border-zinc-800/50 p-4 z-20 flex-col gap-4">
+              <h3 className="text-sm font-black text-zinc-400 uppercase tracking-wider flex items-center gap-2">
+                <Trophy className="w-4 h-4 text-yellow-500" />
+                Classement
+              </h3>
+              <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2">
+                {leaderboard.slice(0, 10).map((entry, index) => (
+                  <div key={entry.username} className="flex items-center gap-2 p-2 rounded-xl bg-zinc-900/50 border border-zinc-800">
+                    <span className="font-mono text-xs text-zinc-500 w-4">{index + 1}</span>
+                    <span className="font-bold text-xs truncate flex-1">{entry.username}</span>
+                    <span className="font-mono text-xs text-yellow-500">{entry.score.toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Right Sidebar */}
+            <div className="hidden md:flex fixed right-0 top-0 h-full w-[250px] bg-zinc-950/30 border-l border-zinc-800/50 p-4 z-20 flex-col gap-4">
+              <h3 className="text-sm font-black text-zinc-400 uppercase tracking-wider flex items-center gap-2">
+                <ShoppingBag className="w-4 h-4 text-amber-500" />
+                Boutique
+              </h3>
+              <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2">
+                {shopItems.map((item) => (
+                  <div key={item.id} className="flex items-center gap-2 p-2 rounded-xl bg-zinc-900/50 border border-zinc-800">
+                    <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center">
+                      {getIcon(item.icon, "w-4 h-4")}
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-bold text-xs truncate">{item.name}</div>
+                      <div className="text-[10px] text-zinc-500">{item.price} coins</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Main Content */}
+            <div className="flex-1 w-full h-full bg-zinc-900/40 relative overflow-hidden flex flex-col items-center justify-center p-4">
               {/* Decorative Background Elements */}
               <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-purple-600/10 blur-[100px] -mr-32 -mt-32 pointer-events-none" />
               <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-pink-600/10 blur-[100px] -ml-32 -mb-32 pointer-events-none" />
               
-              {/* Top Left: Shop Button */}
-              <div className="absolute top-4 left-4 md:top-6 md:left-6 flex items-center gap-4 z-20">
-                <button 
-                  onClick={() => navigate('/auction-house?tab=shop')}
-                  className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-zinc-950/50 border-2 border-amber-500/50 flex flex-col items-center justify-center hover:bg-zinc-800 transition-all group hover:scale-110 active:scale-95 shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:shadow-[0_0_30px_rgba(245,158,11,0.4)]"
-                  title="Boutique"
-                >
-                  <LucideIcons.ShoppingBag className="w-6 h-6 md:w-8 md:h-8 text-amber-500 group-hover:text-amber-400 transition-colors" />
-                  <span className="text-[8px] md:text-[10px] font-black text-amber-500 uppercase tracking-tighter mt-1">Boutique</span>
-                </button>
-              </div>
-
-              {/* Top Right: Action Buttons */}
-              <div className="absolute top-4 right-4 md:top-6 md:right-6 flex items-center gap-2 z-20">
-                <button 
-                  onClick={() => setShowLeaderboard(true)}
-                  className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-zinc-800/50 border border-zinc-700/50 flex items-center justify-center hover:bg-zinc-700 transition-all group hover:scale-110 active:scale-95"
-                  title="Classement"
-                >
-                  <Trophy className="w-4 h-4 md:w-5 md:h-5 text-yellow-500" />
-                </button>
-                <Link 
-                  to="/submit-question"
-                  className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-zinc-800/50 border border-zinc-700/50 flex items-center justify-center hover:bg-zinc-700 transition-all group hover:scale-110 active:scale-95"
-                  title="Proposer une question"
-                >
-                  <LucideIcons.Plus className="w-4 h-4 md:w-5 md:h-5 text-green-500" />
-                </Link>
-                <button 
-                  onClick={() => setShowRules(true)}
-                  className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-zinc-800/50 border border-zinc-700/50 flex items-center justify-center hover:bg-zinc-700 transition-all group hover:scale-110 active:scale-95"
-                  title="Règles"
-                >
-                  <LucideIcons.Info className="w-4 h-4 md:w-5 md:h-5 text-zinc-400" />
-                </button>
-              </div>
-              
-              <div className="relative z-10 text-center space-y-3 md:space-y-6 w-full max-w-4xl flex flex-col items-center">
+              <div className="relative z-10 text-center space-y-3 md:space-y-6 w-full max-w-4xl flex flex-col items-center justify-center">
                 {/* Phrase instead of Logos */}
                 <motion.div
                   initial={{ y: -20, opacity: 0 }}
@@ -270,57 +289,57 @@ export default function Home() {
                 onClick={() => setShowRules(false)}
                 className="absolute top-6 right-6 p-2 hover:bg-zinc-800 rounded-xl transition-colors"
               >
-                <LucideIcons.X className="w-6 h-6" />
+                <X className="w-6 h-6" />
               </button>
 
               <div className="space-y-4">
                 <div className="space-y-1">
                   <h2 className="text-xl md:text-2xl font-black tracking-tighter flex items-center gap-3">
-                    <LucideIcons.Info className="w-8 h-8 text-purple-500" />
+                    <Info className="w-8 h-8 text-purple-500" />
                     RÈGLES DU JEU
                   </h2>
                   <p className="text-zinc-500 text-sm font-medium">Tout ce que tu dois savoir pour dominer l'arène.</p>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <div className="w-10 h-10 bg-yellow-500/10 rounded-xl flex items-center justify-center">
-                      <LucideIcons.Zap className="w-5 h-5 text-yellow-500" />
+                  <div className="flex items-center gap-4 bg-zinc-950/50 p-4 rounded-2xl border border-zinc-800">
+                    <div className="w-12 h-12 bg-yellow-500/10 rounded-2xl flex items-center justify-center shrink-0">
+                      <Zap className="w-6 h-6 text-yellow-500" />
                     </div>
-                    <h3 className="text-lg font-bold text-white">Calcul des Points</h3>
-                    <p className="text-zinc-400 text-xs leading-relaxed">
-                      Les points sont basés sur la rapidité et la justesse. Une réponse correcte donne jusqu'à <span className="text-white font-bold">1000 points</span>.
-                    </p>
+                    <div>
+                      <h3 className="text-sm font-black text-white uppercase tracking-wider">Points</h3>
+                      <p className="text-zinc-400 text-[10px]">Rapide + Juste = 1000 pts max</p>
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <div className="w-10 h-10 bg-green-500/10 rounded-xl flex items-center justify-center">
-                      <LucideIcons.TrendingUp className="w-5 h-5 text-green-500" />
+                  <div className="flex items-center gap-4 bg-zinc-950/50 p-4 rounded-2xl border border-zinc-800">
+                    <div className="w-12 h-12 bg-green-500/10 rounded-2xl flex items-center justify-center shrink-0">
+                      <TrendingUp className="w-6 h-6 text-green-500" />
                     </div>
-                    <h3 className="text-lg font-bold text-white">Expérience (XP)</h3>
-                    <p className="text-zinc-400 text-xs leading-relaxed">
-                      Chaque partie terminée te rapporte de l'XP. Gagne des niveaux pour débloquer des badges exclusifs.
-                    </p>
+                    <div>
+                      <h3 className="text-sm font-black text-white uppercase tracking-wider">XP</h3>
+                      <p className="text-zinc-400 text-[10px]">Parties = Niveau + Badges</p>
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center">
-                      <LucideIcons.Coins className="w-5 h-5 text-amber-500" />
+                  <div className="flex items-center gap-4 bg-zinc-950/50 p-4 rounded-2xl border border-zinc-800">
+                    <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center shrink-0">
+                      <Coins className="w-6 h-6 text-amber-500" />
                     </div>
-                    <h3 className="text-lg font-bold text-white">Coins & BrainCoins</h3>
-                    <p className="text-zinc-400 text-xs leading-relaxed">
-                      Les <span className="text-amber-500 font-bold">Coins</span> s'obtiennent en jouant. Les <span className="text-fuchsia-500 font-bold">BrainCoins</span> sont rares.
-                    </p>
+                    <div>
+                      <h3 className="text-sm font-black text-white uppercase tracking-wider">Monnaie</h3>
+                      <p className="text-zinc-400 text-[10px]">Coins (Jeu) + BrainCoins (Rare)</p>
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <div className="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center">
-                      <LucideIcons.Package className="w-5 h-5 text-blue-500" />
+                  <div className="flex items-center gap-4 bg-zinc-950/50 p-4 rounded-2xl border border-zinc-800">
+                    <div className="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center shrink-0">
+                      <Package className="w-6 h-6 text-blue-500" />
                     </div>
-                    <h3 className="text-lg font-bold text-white">Système de Coffres</h3>
-                    <p className="text-zinc-400 text-xs leading-relaxed">
-                      Ouvre des coffres pour obtenir des objets aléatoires. Tu peux les utiliser en jeu ou les revendre !
-                    </p>
+                    <div>
+                      <h3 className="text-sm font-black text-white uppercase tracking-wider">Coffres</h3>
+                      <p className="text-zinc-400 text-[10px]">Objets aléatoires à revendre</p>
+                    </div>
                   </div>
                 </div>
 
@@ -355,7 +374,7 @@ export default function Home() {
                 onClick={() => setShowLeaderboard(false)}
                 className="absolute top-8 right-8 p-2 hover:bg-zinc-800 rounded-xl transition-colors"
               >
-                <LucideIcons.X className="w-8 h-8" />
+                <X className="w-8 h-8" />
               </button>
 
               <h2 className="text-2xl font-black tracking-tighter mb-4 flex items-center gap-4">
@@ -424,11 +443,11 @@ export default function Home() {
               {/* Bag Header */}
               <div className="bg-[#1a1612] px-4 py-2 border-b-2 border-[#4a3c2c] flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <LucideIcons.Backpack className="w-4 h-4 text-[#c4a484]" />
+                  <Backpack className="w-4 h-4 text-[#c4a484]" />
                   <h3 className="text-[#c4a484] font-black text-xs uppercase tracking-widest">Sac de voyage</h3>
                 </div>
                 <button onClick={() => setShowBag(false)} className="text-[#4a3c2c] hover:text-[#c4a484] transition-colors">
-                  <LucideIcons.X className="w-5 h-5" />
+                  <X className="w-5 h-5" />
                 </button>
               </div>
 

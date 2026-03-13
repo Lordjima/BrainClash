@@ -9,6 +9,19 @@ import { globalLeaderboard, pendingQuestionsCache, themesCache } from './state';
 import { invalidateCaches, getCachedPendingQuestions, getCachedThemes } from './game';
 
 export const apiRouter = express.Router();
+console.log("API Router is loaded");
+
+apiRouter.get('/auth/twitch/url', (req, res) => {
+  const redirectUri = req.query.redirect_uri as string;
+  const params = new URLSearchParams({
+    client_id: process.env.TWITCH_CLIENT_ID || "",
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope: "user:read:email",
+    state: redirectUri
+  });
+  res.json({ url: `https://id.twitch.tv/oauth2/authorize?${params}` });
+});
 
 apiRouter.get('/leaderboard', async (req, res) => {
   if (globalLeaderboard.length === 0) {

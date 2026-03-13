@@ -179,23 +179,25 @@ export default function Profile() {
                   return (
                     <div 
                       key={badge.id} 
-                      className={`bg-zinc-950/50 border border-zinc-800 rounded-2xl p-4 flex flex-col items-center text-center group transition-all ${
+                      className={`flex items-center gap-3 bg-zinc-950/50 border border-zinc-800 rounded-2xl p-3 transition-all ${
                         isEarned ? 'opacity-100' : 'opacity-40 grayscale'
                       }`}
                       title={badge.description}
                     >
-                      <div className={`w-10 h-10 rounded-xl bg-zinc-900 flex items-center justify-center mb-3 ${
+                      <div className={`w-10 h-10 rounded-xl bg-zinc-900 flex items-center justify-center shrink-0 ${
                         isEarned ? 'text-purple-400' : 'text-zinc-600'
                       }`}>
                         {getIcon(badge.icon, "w-5 h-5")}
                       </div>
-                      <div className={`text-[10px] font-black uppercase tracking-tight truncate w-full ${
-                        isEarned ? 'text-white' : 'text-zinc-500'
-                      }`}>
-                        {badge.name}
-                      </div>
-                      <div className="text-[8px] font-bold text-zinc-600 mt-1">
-                        {isEarned ? 'DÉBLOQUÉ' : 'VERROUILLÉ'}
+                      <div className="overflow-hidden">
+                        <div className={`text-[10px] font-black uppercase tracking-tight truncate ${
+                          isEarned ? 'text-white' : 'text-zinc-500'
+                        }`}>
+                          {badge.name}
+                        </div>
+                        <div className="text-[8px] font-bold text-zinc-600 uppercase">
+                          {isEarned ? 'Acquis' : 'Verrouillé'}
+                        </div>
                       </div>
                     </div>
                   );
@@ -220,14 +222,16 @@ export default function Profile() {
                 profile.inventory.map((itemId, idx) => {
                   const item = allShopItems.find(si => si.id === itemId);
                   return (
-                    <div key={`${itemId}-${idx}`} className="bg-zinc-950/50 border border-zinc-800 rounded-2xl p-4 flex flex-col items-center text-center group transition-all">
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 ${
+                    <div key={`${itemId}-${idx}`} className="flex items-center gap-3 bg-zinc-950/50 border border-zinc-800 rounded-2xl p-3">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                         item?.type === 'attack' ? 'bg-red-500/10 text-red-500' : 'bg-blue-500/10 text-blue-500'
                       }`}>
-                        {item ? getIcon(item.icon, "w-6 h-6") : <LucideIcons.Package className="w-6 h-6" />}
+                        {item ? getIcon(item.icon, "w-5 h-5") : <LucideIcons.Package className="w-5 h-5" />}
                       </div>
-                      <div className="text-[10px] font-black text-white uppercase truncate w-full">{item?.name || itemId}</div>
-                      <div className="text-[8px] font-bold text-zinc-600 mt-1 uppercase">{item?.type || 'Objet'}</div>
+                      <div className="overflow-hidden">
+                        <div className="text-[10px] font-black text-white uppercase truncate">{item?.name || itemId}</div>
+                        <div className="text-[8px] font-bold text-zinc-600 uppercase">{item?.type || 'Objet'}</div>
+                      </div>
                     </div>
                   );
                 })

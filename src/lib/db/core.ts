@@ -1,99 +1,32 @@
 import mysql from 'mysql2/promise';
-import sqlite3 from 'sqlite3';
-import { open, Database } from 'sqlite';
 import dotenv from 'dotenv';
 import { getThemesWithQuestions, addTheme, addQuestion } from './questions';
 
 dotenv.config();
 
 let mysqlPool: mysql.Pool | null = null;
-let sqliteDb: Database | null = null;
-let useMySQL = process.env.DB_HOST && process.env.DB_HOST !== '127.0.0.1' && process.env.DB_HOST !== 'localhost';
-
-function translateSql(sql: string): string {
-  if (useMySQL) return sql;
-  
-  let translated = sql
-    .replace(/AUTO_INCREMENT/g, 'AUTOINCREMENT')
-    .replace(/ JSON/g, ' TEXT')
-    .replace(/ ENUM\([^)]+\)/g, ' TEXT')
-    .replace(/ DATETIME/g, ' TEXT')
-    .replace(/ BOOLEAN/g, ' INTEGER')
-    .replace(/ ON UPDATE CURRENT_TIMESTAMP/g, '')
-    .replace(/INSERT IGNORE/g, 'INSERT OR IGNORE');
-
-  if (translated.includes('ON DUPLICATE KEY UPDATE')) {
-    translated = translated.replace(
-      /ON DUPLICATE KEY UPDATE\s+avatar = VALUES\(avatar\), score = VALUES\(score\), games_played = VALUES\(games_played\),\s+coins = VALUES\(coins\), xp = VALUES\(xp\), level = VALUES\(level\)/,
-      'ON CONFLICT(username) DO UPDATE SET avatar = excluded.avatar, score = excluded.score, games_played = excluded.games_played, coins = excluded.coins, xp = excluded.xp, level = excluded.level'
-    );
-    
-    translated = translated.replace(
-      /ON DUPLICATE KEY UPDATE\s+avatar = VALUES\(avatar\), score = score \+ VALUES\(score\), games_played = games_played \+ 1, coins = coins \+ VALUES\(coins\)/,
-      'ON CONFLICT(username) DO UPDATE SET avatar = excluded.avatar, score = score + excluded.score, games_played = games_played + 1, coins = coins + excluded.coins'
-    );
-    
-    translated = translated.replace(
-      /ON DUPLICATE KEY UPDATE xp = xp \+ VALUES\(xp\)/,
-      'ON CONFLICT(username, badge_id) DO UPDATE SET xp = xp + excluded.xp'
-    );
-  }
-
-  if (translated.includes('UNIX_TIMESTAMP')) {
-    translated = translated.replace(/UNIX_TIMESTAMP\(([^)]+)\)/g, "strftime('%s', $1)");
-  }
-
-  if (translated.includes('NOW()')) {
-    translated = translated.replace(/NOW\(\)/g, "CURRENT_TIMESTAMP");
-  }
-
-  return translated;
-}
 
 export async function query(sql: string, params: any[] = []): Promise<any[]> {
-  try {
-    if (useMySQL) {
-      if (!mysqlPool) {
-        mysqlPool = mysql.createPool({
-          host: process.env.DB_HOST || '127.0.0.1',
-          port: parseInt(process.env.DB_PORT || '3306'),
-          user: process.env.DB_USER || 'root',
-          password: process.env.DB_PASSWORD || '',
-          database: process.env.DB_NAME || 'brainclash',
-          waitForConnections: true,
-          connectionLimit: 10,
-          queueLimit: 0,
-          connectTimeout: 5000
-        });
-      }
-      const [rows] = await mysqlPool.query(sql, params);
-      return rows as any[];
-    }
-  } catch (e: any) {
-    console.warn("MySQL connection failed, falling back to SQLite:", e.message);
-    useMySQL = false;
-  }
-
-  if (!sqliteDb) {
-    sqliteDb = await open({
-      filename: 'database.sqlite',
-      driver: sqlite3.Database
+  if (!mysqlPool) {
+    mysqlPool = mysql.createPool({
+      host: process.env.DB_HOST || '127.0.0.1',
+      port: parseInt(process.env.DB_PORT || '3306'),
+      user: process.env.DB_USER || 'root',
+      password: process.env.DB_PASSWORD || '',
+      database: process.env.DB_NAME || 'brainclash',
+      waitForConnections: true,
+      connectionLimit: 10,
+      queueLimit: 0,
+      connectTimeout: 5000
     });
   }
-
-  const translatedSql = translateSql(sql);
-  
-  if (translatedSql.trim().toUpperCase().startsWith('SELECT') || translatedSql.trim().toUpperCase().startsWith('PRAGMA')) {
-    return await sqliteDb.all(translatedSql, params);
-  } else {
-    await sqliteDb.run(translatedSql, params);
-    return [] as any[];
-  }
+  const [rows] = await mysqlPool.query(sql, params);
+  return rows as any[];
 }
 
 export async function initDB() {
   try {
-    console.log(`🚀 Initialisation de la base de données (${useMySQL ? 'MySQL' : 'SQLite'})...`);
+    console.log(`🚀 Initialisation de la base de données (MySQL)...`);
     
     await query(`
       CREATE TABLE IF NOT EXISTS users (
@@ -115,14 +48,14 @@ export async function initDB() {
 
     await query(`
       CREATE TABLE IF NOT EXISTS categories (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(255) NOT NULL UNIQUE
       )
-    `.replace('INTEGER PRIMARY KEY AUTOINCREMENT', useMySQL ? 'INT AUTO_INCREMENT PRIMARY KEY' : 'INTEGER PRIMARY KEY AUTOINCREMENT'));
+    `);
 
     await query(`
       CREATE TABLE IF NOT EXISTS questions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id INT AUTO_INCREMENT PRIMARY KEY,
         category_id INT NOT NULL,
         text TEXT NOT NULL,
         options JSON NOT NULL,
@@ -132,11 +65,11 @@ export async function initDB() {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
       )
-    `.replace('INTEGER PRIMARY KEY AUTOINCREMENT', useMySQL ? 'INT AUTO_INCREMENT PRIMARY KEY' : 'INTEGER PRIMARY KEY AUTOINCREMENT'));
+    `);
 
     await query(`
       CREATE TABLE IF NOT EXISTS submit_questions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id INT AUTO_INCREMENT PRIMARY KEY,
         category_id INT NOT NULL,
         text TEXT NOT NULL,
         options JSON NOT NULL,
@@ -147,11 +80,11 @@ export async function initDB() {
         FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE,
         FOREIGN KEY (author) REFERENCES users(username) ON DELETE CASCADE
       )
-    `.replace('INTEGER PRIMARY KEY AUTOINCREMENT', useMySQL ? 'INT AUTO_INCREMENT PRIMARY KEY' : 'INTEGER PRIMARY KEY AUTOINCREMENT'));
+    `);
 
     await query(`
       CREATE TABLE IF NOT EXISTS valid_questions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id INT AUTO_INCREMENT PRIMARY KEY,
         original_submit_id INT,
         category_id INT NOT NULL,
         text TEXT NOT NULL,
@@ -162,16 +95,16 @@ export async function initDB() {
         FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE,
         FOREIGN KEY (author) REFERENCES users(username) ON DELETE SET NULL
       )
-    `.replace('INTEGER PRIMARY KEY AUTOINCREMENT', useMySQL ? 'INT AUTO_INCREMENT PRIMARY KEY' : 'INTEGER PRIMARY KEY AUTOINCREMENT'));
+    `);
 
     await query(`
       CREATE TABLE IF NOT EXISTS badges (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(255) NOT NULL UNIQUE,
         description TEXT,
         icon VARCHAR(255)
       )
-    `.replace('INTEGER PRIMARY KEY AUTOINCREMENT', useMySQL ? 'INT AUTO_INCREMENT PRIMARY KEY' : 'INTEGER PRIMARY KEY AUTOINCREMENT'));
+    `);
 
     await query(`
       CREATE TABLE IF NOT EXISTS user_badges (
@@ -188,7 +121,7 @@ export async function initDB() {
 
     await query(`
       CREATE TABLE IF NOT EXISTS quiz (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         description TEXT,
         category_id INT NOT NULL,
@@ -198,11 +131,11 @@ export async function initDB() {
         FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE,
         FOREIGN KEY (created_by) REFERENCES users(username) ON DELETE SET NULL
       )
-    `.replace('INTEGER PRIMARY KEY AUTOINCREMENT', useMySQL ? 'INT AUTO_INCREMENT PRIMARY KEY' : 'INTEGER PRIMARY KEY AUTOINCREMENT'));
+    `);
 
     await query(`
       CREATE TABLE IF NOT EXISTS shop_items (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         description TEXT,
         price INT NOT NULL,
@@ -210,11 +143,11 @@ export async function initDB() {
         icon VARCHAR(255),
         type ENUM('attack', 'defense', 'bonus', 'cosmetic') NOT NULL
       )
-    `.replace('INTEGER PRIMARY KEY AUTOINCREMENT', useMySQL ? 'INT AUTO_INCREMENT PRIMARY KEY' : 'INTEGER PRIMARY KEY AUTOINCREMENT'));
+    `);
 
     await query(`
       CREATE TABLE IF NOT EXISTS inventory_items (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id INT AUTO_INCREMENT PRIMARY KEY,
         username VARCHAR(191) NOT NULL,
         item_id INT NOT NULL,
         quantity INT NOT NULL DEFAULT 1,
@@ -222,11 +155,11 @@ export async function initDB() {
         FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE,
         FOREIGN KEY (item_id) REFERENCES shop_items(id) ON DELETE CASCADE
       )
-    `.replace('INTEGER PRIMARY KEY AUTOINCREMENT', useMySQL ? 'INT AUTO_INCREMENT PRIMARY KEY' : 'INTEGER PRIMARY KEY AUTOINCREMENT'));
+    `);
 
     await query(`
       CREATE TABLE IF NOT EXISTS auction_items (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id INT AUTO_INCREMENT PRIMARY KEY,
         seller VARCHAR(191) NOT NULL,
         item_id INT NOT NULL,
         price INT NOT NULL,
@@ -235,13 +168,14 @@ export async function initDB() {
         FOREIGN KEY (seller) REFERENCES users(username) ON DELETE CASCADE,
         FOREIGN KEY (item_id) REFERENCES shop_items(id) ON DELETE CASCADE
       )
-    `.replace('INTEGER PRIMARY KEY AUTOINCREMENT', useMySQL ? 'INT AUTO_INCREMENT PRIMARY KEY' : 'INTEGER PRIMARY KEY AUTOINCREMENT'));
+    `);
 
     await seedData();
 
     console.log(`✅ Base de données initialisée avec succès`);
   } catch (error) {
     console.error("❌ Erreur lors de l'initialisation de la base de données:", error);
+    throw error; // Re-throw to ensure the app fails if MySQL fails
   }
 }
 
@@ -291,5 +225,6 @@ async function seedData() {
     }
   } catch (error) {
     console.error('Error seeding data:', error);
+    throw error;
   }
 }

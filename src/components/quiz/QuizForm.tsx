@@ -1,5 +1,5 @@
 import React from 'react';
-import { Settings, Play } from 'lucide-react';
+import { Settings, Play, History } from 'lucide-react';
 
 interface QuizFormProps {
   name: string;
@@ -12,6 +12,7 @@ interface QuizFormProps {
   setTimeLimit: (time: number) => void;
   themes: Record<string, any>;
   onSubmit: (e: React.FormEvent) => void;
+  onOpenHistory: () => void;
 }
 
 export default function QuizForm({
@@ -25,20 +26,30 @@ export default function QuizForm({
   setTimeLimit,
   themes,
   onSubmit,
+  onOpenHistory,
 }: QuizFormProps) {
   return (
     <div className="bg-zinc-900/50 backdrop-blur-md p-4 rounded-3xl border border-zinc-800 shadow-2xl relative overflow-hidden group">
       {/* Decorative background element */}
       <div className="absolute -top-24 -right-24 w-48 h-48 bg-violet-600/10 blur-[80px] rounded-full group-hover:bg-violet-600/20 transition-all duration-700" />
       
-      <div className="flex items-center gap-4 mb-4 relative">
-        <div className="w-10 h-10 bg-gradient-to-br from-violet-600 to-fuchsia-600 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-violet-600/20">
-          <Settings className="w-5 h-5 text-white" />
+      <div className="flex items-center justify-between mb-4 relative">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 bg-gradient-to-br from-violet-600 to-fuchsia-600 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-violet-600/20">
+            <Settings className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold tracking-tight">CONFIGURATION DU QUIZ</h2>
+            <p className="text-zinc-500 text-[10px]">Préparez votre prochaine session de jeu</p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-lg font-bold tracking-tight">CONFIGURATION DU QUIZ</h2>
-          <p className="text-zinc-500 text-[10px]">Préparez votre prochaine session de jeu</p>
-        </div>
+        <button
+          onClick={onOpenHistory}
+          className="bg-zinc-800 hover:bg-zinc-700 text-white font-bold py-2 px-4 rounded-xl transition-all flex items-center gap-2 border border-zinc-700 shadow-lg hover:scale-105 active:scale-95 text-xs"
+        >
+          <History className="w-4 h-4 text-fuchsia-400" />
+          Historique
+        </button>
       </div>
 
       <form onSubmit={onSubmit} className="space-y-4 relative">

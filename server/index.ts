@@ -11,6 +11,7 @@ import { refreshLeaderboard } from './game';
 dotenv.config();
 
 async function startServer() {
+  console.log("Server is starting...");
   await initDB();
 
   const app = express();
@@ -26,6 +27,58 @@ async function startServer() {
 
   // API Routes
   app.use('/api', apiRouter);
+
+  app.get(["/auth/twitch/callback", "/auth/twitch/callback/"], async (req, res) => {
+    const { code, state } = req.query;
+    console.log("Twitch callback received. Code:", code, "State:", state);
+    try {
+      const tokenResponse = await fetch("https://id.twitch.tv/oauth2/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          client_id: process.env.TWITCH_CLIENT_ID || "",
+          client_secret: process.env.TWITCH_CLIENT_SECRET || "",
+          code: code as string,
+          grant_type: "authorization_code",
+          redirect_uri: state as string,
+        }),
+      });
+      const tokenData = await tokenResponse.json();
+      console.log("Token exchange response:", tokenData);
+      if (!tokenResponse.ok) {
+        throw new Error(`Token exchange failed: ${JSON.stringify(tokenData)}`);
+      }
+      
+      const userResponse = await fetch("https://api.twitch.tv/helix/users", {
+        headers: {
+          Authorization: `Bearer ${tokenData.access_token}`,
+          "Client-Id": process.env.TWITCH_CLIENT_ID || "",
+        },
+      });
+      const userData = await userResponse.json();
+      console.log("User data response:", userData);
+      if (!userResponse.ok) {
+        throw new Error(`User fetch failed: ${JSON.stringify(userData)}`);
+      }
+      
+      const user = userData.data[0];
+      res.send(`
+        <html>
+          <body>
+            <script>
+              window.opener.postMessage({ type: 'OAUTH_AUTH_SUCCESS', user: ${JSON.stringify(user)} }, '*');
+              window.close();
+            </script>
+          </body>
+        </html>
+      `);
+    } catch (error) {
+      console.error("Twitch auth error:", error);
+      res.status(500).send(`Authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  });
 
   // Socket.IO
   setupSocketHandlers(io);

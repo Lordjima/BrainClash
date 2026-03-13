@@ -130,16 +130,17 @@ async function seed() {
       brainCoins: 1000,
       level: 5,
       xp: 2500,
-      hp: 100,
-      maxHp: 100,
-      is_sub: true,
-      inventory: JSON.stringify([1, 1, 3, 3, 3, 3, 3])
+      is_sub: true
     };
     
     await query(
-              'INSERT IGNORE INTO users (username, avatar, score, games_played, coins, brainCoins, level, xp, hp, maxHp, is_sub, inventory) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-              [testUser.username, testUser.avatar, testUser.score, testUser.games_played, testUser.coins, testUser.brainCoins, testUser.level, testUser.xp, testUser.hp, testUser.maxHp, testUser.is_sub, testUser.inventory]
+              'INSERT IGNORE INTO users (username, avatar, score, games_played, coins, brainCoins, level, xp, is_sub) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+              [testUser.username, testUser.avatar, testUser.score, testUser.games_played, testUser.coins, testUser.brainCoins, testUser.level, testUser.xp, testUser.is_sub]
             );
+    
+    // Inventory is handled by inventory_items table
+    await query('INSERT IGNORE INTO inventory_items (username, item_id, quantity) VALUES (?, ?, ?)', [testUser.username, 1, 2]);
+    await query('INSERT IGNORE INTO inventory_items (username, item_id, quantity) VALUES (?, ?, ?)', [testUser.username, 3, 5]);
 
     console.log('Base de données initialisée avec succès !');
     process.exit(0);

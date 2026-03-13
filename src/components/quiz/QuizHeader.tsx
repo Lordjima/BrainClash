@@ -1,5 +1,5 @@
 import React from 'react';
-import { History } from 'lucide-react';
+import { History, Settings } from 'lucide-react';
 
 interface QuizHeaderProps {
   onOpenHistory: () => void;
@@ -9,7 +9,9 @@ export default function QuizHeader({ onOpenHistory }: QuizHeaderProps) {
   return (
     <div className="flex items-center justify-between mb-8">
       <div className="flex items-center gap-4">
-        <h1 className="text-3xl font-bold tracking-tight">CRÉER UN QUIZ</h1>
+        <button className="p-2 text-zinc-400 hover:text-white transition-colors">
+          <Settings className="w-6 h-6" />
+        </button>
       </div>
       <div className="flex items-center gap-3">
         <button
