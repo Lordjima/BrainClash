@@ -324,7 +324,7 @@ async function startServer() {
           } else {
             // Create new theme
             targetThemeId = theme.toLowerCase().replace(/[^a-z0-9]/g, '-');
-            await addTheme(targetThemeId);
+            await addTheme(targetThemeId, theme);
           }
 
           const newQ: Question = {
