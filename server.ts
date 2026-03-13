@@ -8,21 +8,42 @@ import dotenv from 'dotenv';
 // Load environment variables from .env file (for local development)
 dotenv.config();
 
-import type { Question, Player, RoomState, GlobalLeaderboardEntry, SubmittedQuestion } from '../BrainClash/src/types.ts';
-import { initDB, getLeaderboard, getPendingQuestions, addSubmittedQuestion, updateSubmittedQuestionStatus, getThemesWithQuestions, addTheme, addQuestion, getUserProfile, updateUserProfile, buyItem, useItem, toggleSubStatus } from '../BrainClash/src/lib/db.ts';
+import type { Question, Player, RoomState, GlobalLeaderboardEntry, SubmittedQuestion, Theme } from './src/types.ts';
+import { initDB, getLeaderboard, getPendingQuestions, addSubmittedQuestion, updateSubmittedQuestionStatus, getThemesWithQuestions, addTheme, addQuestion, getUserProfile, updateUserProfile, buyItem, useItem, toggleSubStatus, batchUpdateUserProfiles } from './src/lib/db.ts';
 
 let globalLeaderboard: GlobalLeaderboardEntry[] = [];
-let pendingQuestions: SubmittedQuestion[] = [];
+let pendingQuestionsCache: SubmittedQuestion[] | null = null;
+let themesCache: Record<string, Theme> | null = null;
 
 async function refreshLeaderboard(io: Server) {
   globalLeaderboard = await getLeaderboard();
   io.emit('leaderboard_update', globalLeaderboard);
 }
 
+async function getCachedPendingQuestions() {
+  if (!pendingQuestionsCache) {
+    pendingQuestionsCache = await getPendingQuestions();
+  }
+  return pendingQuestionsCache;
+}
+
+async function getCachedThemes() {
+  if (!themesCache) {
+    themesCache = await getThemesWithQuestions();
+  }
+  return themesCache;
+}
+
+function invalidateCaches() {
+  pendingQuestionsCache = null;
+  themesCache = null;
+}
+
 async function updateGlobalLeaderboard(room: RoomState, io: Server) {
   const players = Object.values(room.players);
-  // Sort players by score to determine rank
   const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
+  
+  const updates = [];
   
   for (const p of players) {
     if (p.score > 0) {
@@ -31,22 +52,33 @@ async function updateGlobalLeaderboard(room: RoomState, io: Server) {
       const isSub = profile?.is_sub || false;
       const gamesPlayed = (profile?.games_played || 0) + 1;
       
-      // Calculate coins
-      let earnedCoins = 10; // Base for playing
-      earnedCoins += Math.floor(p.score / 100); // Bonus based on score
-      if (rank === 1) earnedCoins += 50; // Win bonus
-      if (isSub) earnedCoins *= 2; // Sub bonus multiplier
+      let earnedCoins = 10;
+      earnedCoins += Math.floor(p.score / 100);
+      if (rank === 1) earnedCoins += 50;
+      if (isSub) earnedCoins *= 2;
       
-      // Calculate badges
       const newBadges: string[] = [];
       if (gamesPlayed === 1) newBadges.push('first_game');
       if (gamesPlayed === 10) newBadges.push('veteran');
       if (gamesPlayed === 50) newBadges.push('expert');
       if (rank === 1) newBadges.push('champion');
       
-      await updateUserProfile(p.username, p.avatar, p.score, earnedCoins, newBadges);
+      updates.push({
+        username: p.username,
+        avatar: p.avatar,
+        score: p.score,
+        earnedCoins,
+        newBadges
+      });
     }
   }
+  
+  if (updates.length > 0) {
+    // Need to fix the parameter name in db.ts or here. 
+    // In db.ts it was coinsEarned, I used earnedCoins here.
+    await batchUpdateUserProfiles(updates.map(u => ({ ...u, coinsEarned: u.earnedCoins })));
+  }
+  
   await refreshLeaderboard(io);
 }
 
@@ -69,7 +101,11 @@ function scheduleQuestionEnd(roomId: string, io: Server, timeLimitMs: number) {
     const room = rooms.get(roomId);
     if (room && room.status === 'active' && !room.showAnswer) {
       room.showAnswer = true;
-      io.to(roomId).emit('room_update', { ...room, serverTime: Date.now() });
+      const currentQ = room.questions[room.currentQuestionIndex];
+      io.to(roomId).emit('answer_revealed', { 
+        correctOptionIndex: currentQ.correctOptionIndex,
+        players: room.players 
+      });
       scheduleNextQuestion(roomId, io);
     }
   }, timeLimitMs);
@@ -95,15 +131,22 @@ function scheduleNextQuestion(roomId: string, io: Server) {
           p.isCorrect = undefined;
         });
         
-        io.to(roomId).emit('room_update', { ...room, serverTime: Date.now() });
+        io.to(roomId).emit('question_started', {
+          currentQuestionIndex: room.currentQuestionIndex,
+          questionStartTime: room.questionStartTime,
+          serverTime: Date.now()
+        });
         
         const currentQ = room.questions[room.currentQuestionIndex];
         scheduleQuestionEnd(roomId, io, currentQ.timeLimit * 1000);
       } else {
         room.status = 'finished';
-        io.to(roomId).emit('room_update', { ...room, serverTime: Date.now() });
-        roomTimers.delete(roomId);
         updateGlobalLeaderboard(room, io);
+        io.to(roomId).emit('game_finished', {
+          status: room.status,
+          players: room.players
+        });
+        roomTimers.delete(roomId);
       }
     } else {
       roomTimers.delete(roomId);
@@ -145,6 +188,11 @@ async function startServer() {
     const redirectUri = (state as string) || getRedirectUri(req);
     
     try {
+      if (!process.env.TWITCH_CLIENT_ID || !process.env.TWITCH_CLIENT_SECRET) {
+        console.error('Missing Twitch credentials in environment variables');
+        return res.status(500).send('Configuration Twitch manquante (Client ID ou Secret).');
+      }
+
       const tokenResponse = await fetch('https://id.twitch.tv/oauth2/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -205,28 +253,29 @@ async function startServer() {
         status: 'pending'
       };
       await addSubmittedQuestion(newQuestion);
+      invalidateCaches();
       socket.emit('question_submitted', true);
     });
 
     socket.on('get_pending_questions', async () => {
-      const pending = await getPendingQuestions();
+      const pending = await getCachedPendingQuestions();
       socket.emit('pending_questions_list', pending);
     });
 
     socket.on('get_themes', async () => {
-      const themes = await getThemesWithQuestions();
+      const themes = await getCachedThemes();
       socket.emit('themes_list', themes);
     });
 
     socket.on('review_question', async ({ id, action, theme }: { id: string, action: 'approve' | 'reject', theme?: string }) => {
-      const pending = await getPendingQuestions();
+      const pending = await getCachedPendingQuestions();
       const qIndex = pending.findIndex(q => q.id === id);
       
       if (qIndex !== -1) {
         await updateSubmittedQuestionStatus(id, action === 'approve' ? 'approved' : 'rejected');
         
         if (action === 'approve' && theme) {
-          const themes = await getThemesWithQuestions();
+          const themes = await getCachedThemes();
           let targetThemeId = theme;
           
           // Check if theme exists by id or name
@@ -238,10 +287,6 @@ async function startServer() {
             // Create new theme
             targetThemeId = theme.toLowerCase().replace(/[^a-z0-9]/g, '-');
             await addTheme(targetThemeId, theme);
-            
-            // Broadcast updated themes to all clients
-            const updatedThemes = await getThemesWithQuestions();
-            io.emit('themes_list', updatedThemes);
           }
 
           const newQ: Question = {
@@ -255,9 +300,26 @@ async function startServer() {
           await addQuestion(newQ, targetThemeId, true);
         }
         
-        const updatedPending = await getPendingQuestions();
+        invalidateCaches();
+        const updatedPending = await getCachedPendingQuestions();
         socket.emit('pending_questions_list', updatedPending);
+        
+        const updatedThemes = await getCachedThemes();
+        io.emit('themes_list', updatedThemes);
       }
+    });
+
+    socket.on('bulk_add_questions', async ({ themeId, questions }: { themeId: string, questions: Omit<Question, 'id'>[] }) => {
+      for (const q of questions) {
+        const newQ: Question = {
+          ...q,
+          id: Math.random().toString(36).substring(2, 9)
+        };
+        await addQuestion(newQ, themeId, true);
+      }
+      invalidateCaches();
+      const updatedThemes = await getCachedThemes();
+      io.emit('themes_list', updatedThemes);
     });
     // ---------------------------
 
@@ -270,7 +332,7 @@ async function startServer() {
       const timeLimit = options?.timeLimit || 15;
       const themeId = options?.theme || 'general';
       
-      const themes = await getThemesWithQuestions();
+      const themes = await getCachedThemes();
       let themeQuestions = themes[themeId]?.questions || themes['general']?.questions || [];
 
       // Mélanger les questions aléatoirement (Fisher-Yates shuffle)
@@ -331,7 +393,12 @@ async function startServer() {
 
       socket.join(room.id);
       socket.emit('room_joined', room.id);
-      io.to(room.id).emit('room_update', { ...room, serverTime: Date.now() });
+      
+      // Full update for the joining player
+      socket.emit('room_update', { ...room, serverTime: Date.now() });
+      
+      // Granular update for others
+      socket.to(room.id).emit('player_joined', room.players[socket.id]);
     });
 
     socket.on('join_observer', (roomId) => {
@@ -362,7 +429,12 @@ async function startServer() {
         // Reset answers
         Object.values(room.players).forEach(p => p.hasAnswered = false);
         
-        io.to(roomId).emit('room_update', { ...room, serverTime: Date.now() });
+        io.to(roomId).emit('game_started', {
+          status: room.status,
+          currentQuestionIndex: room.currentQuestionIndex,
+          questionStartTime: room.questionStartTime,
+          serverTime: Date.now()
+        });
         
         const currentQ = room.questions[0];
         scheduleQuestionEnd(roomId, io, currentQ.timeLimit * 1000);
@@ -390,22 +462,35 @@ async function startServer() {
         player.isCorrect = false;
       }
 
+      // Notify others that this player has answered (without sending full state)
+      io.to(roomId).emit('player_answered', { 
+        playerId: socket.id, 
+        hasAnswered: true,
+        // Only send score/isCorrect if answer is revealed or if it's the player themselves
+      });
+
       const playersList = Object.values(room.players);
       const allAnswered = playersList.length > 0 && playersList.every(p => p.hasAnswered);
       if (allAnswered) {
         room.showAnswer = true;
         scheduleNextQuestion(roomId, io);
+        io.to(roomId).emit('answer_revealed', { 
+          correctOptionIndex: currentQ.correctOptionIndex,
+          players: room.players 
+        });
       }
-
-      io.to(roomId).emit('room_update', { ...room, serverTime: Date.now() });
     });
 
     socket.on('reveal_answer', (roomId) => {
       const room = rooms.get(roomId);
       if (room && room.hostId === socket.id) {
         room.showAnswer = true;
+        const currentQ = room.questions[room.currentQuestionIndex];
+        io.to(roomId).emit('answer_revealed', { 
+          correctOptionIndex: currentQ.correctOptionIndex,
+          players: room.players 
+        });
         scheduleNextQuestion(roomId, io);
-        io.to(roomId).emit('room_update', { ...room, serverTime: Date.now() });
       }
     });
 
@@ -427,12 +512,20 @@ async function startServer() {
           });
           
           const currentQ = room.questions[room.currentQuestionIndex];
+          io.to(roomId).emit('question_started', {
+            currentQuestionIndex: room.currentQuestionIndex,
+            questionStartTime: room.questionStartTime,
+            serverTime: Date.now()
+          });
           scheduleQuestionEnd(roomId, io, currentQ.timeLimit * 1000);
         } else {
           room.status = 'finished';
           updateGlobalLeaderboard(room, io);
+          io.to(roomId).emit('game_finished', {
+            status: room.status,
+            players: room.players
+          });
         }
-        io.to(roomId).emit('room_update', { ...room, serverTime: Date.now() });
       }
     });
 
@@ -447,7 +540,10 @@ async function startServer() {
           p.score = 0;
           p.hasAnswered = false;
         });
-        io.to(roomId).emit('room_update', { ...room, serverTime: Date.now() });
+        io.to(roomId).emit('room_restarted', {
+          status: room.status,
+          players: room.players
+        });
       }
     });
 
