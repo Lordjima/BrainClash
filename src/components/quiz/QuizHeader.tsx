@@ -7,7 +7,7 @@ interface QuizHeaderProps {
 
 export default function QuizHeader({ onOpenHistory }: QuizHeaderProps) {
   return (
-    <div className="flex items-center justify-between mb-8">
+    <div className="flex items-center justify-between mb-3">
       <div className="flex items-center gap-4">
         <h1 className="text-3xl font-bold tracking-tight">CRÉER UN QUIZ</h1>
       </div>
