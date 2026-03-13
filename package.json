@@ -11,7 +11,6 @@
     "preview": "vite preview",
     "clean": "node -e \"const fs=require('fs'); fs.rmSync('dist',{recursive:true,force:true}); fs.rmSync('dist-server',{recursive:true,force:true});\"",
     "lint": "tsc --noEmit",
-    "postinstall": "npm run build",
     "start": "cross-env NODE_ENV=production node dist-server/index.cjs",
     "seed": "tsx scripts/seed.ts"
   },
