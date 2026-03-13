@@ -83,19 +83,11 @@ export default function Profile() {
 
   return (
     <div className="min-h-screen bg-transparent text-white flex flex-col items-center py-12 px-6">
-      <div className="absolute top-6 left-6">
-        <Logo />
-      </div>
-      
       <div className="max-w-4xl w-full grid grid-cols-1 md:grid-cols-3 gap-8">
         {/* Left Column: Profile Info */}
         <div className="bg-zinc-900 p-8 rounded-3xl border border-zinc-800 shadow-xl text-center flex flex-col items-center h-fit">
-          <div className="flex justify-between items-center w-full mb-8">
-            <Link to="/" className="text-zinc-400 hover:text-white transition-colors">
-              <Home className="w-6 h-6" />
-            </Link>
+          <div className="flex justify-center items-center w-full mb-8">
             <h2 className="text-2xl font-bold">Mon Profil</h2>
-            <div className="w-6" />
           </div>
 
           {user ? (

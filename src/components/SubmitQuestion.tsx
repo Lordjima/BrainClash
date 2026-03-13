@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { socket } from '../lib/socket';
-import { Send, ArrowLeft, CheckCircle, User, LogIn } from 'lucide-react';
+import { Send, ArrowLeft, CheckCircle } from 'lucide-react';
 import { Theme } from '../types';
 import Logo from './Logo';
 
@@ -74,28 +74,6 @@ export default function SubmitQuestion() {
     }, 3000);
   };
 
-  const handleTwitchLogin = async () => {
-    try {
-      const redirectUri = `${window.location.origin}/auth/twitch/callback`;
-      const response = await fetch(`/api/auth/twitch/url?redirect_uri=${encodeURIComponent(redirectUri)}`);
-      if (!response.ok) throw new Error('Failed to get auth URL');
-      const { url } = await response.json();
-      
-      const authWindow = window.open(
-        url,
-        'oauth_popup',
-        'width=600,height=700'
-      );
-      
-      if (!authWindow) {
-        alert('Veuillez autoriser les popups pour vous connecter avec Twitch.');
-      }
-    } catch (err) {
-      console.error('Twitch login error:', err);
-      alert('Erreur lors de la connexion Twitch.');
-    }
-  };
-
   if (!twitchUser) {
     return (
       <div className="min-h-screen bg-transparent text-white flex flex-col items-center justify-center p-6 text-center">
@@ -110,35 +88,9 @@ export default function SubmitQuestion() {
 
   return (
     <div className="min-h-screen bg-transparent text-white p-6">
-      {/* Header / Profile */}
-      <div className="absolute top-6 left-6">
-        <Logo />
-      </div>
-      <div className="absolute top-6 right-6">
-        {twitchUser ? (
-          <Link to="/profile" className="flex items-center gap-3 bg-zinc-900 hover:bg-zinc-800 px-4 py-2 rounded-full border border-zinc-800 transition-colors">
-            <span className="font-medium text-sm">{twitchUser.display_name}</span>
-            {twitchUser.profile_image_url ? (
-              <img src={twitchUser.profile_image_url} alt="Profile" className="w-8 h-8 rounded-full" referrerPolicy="no-referrer" />
-            ) : (
-              <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center">
-                <User className="w-4 h-4 text-white" />
-              </div>
-            )}
-          </Link>
-        ) : (
-          <button onClick={handleTwitchLogin} className="flex items-center gap-2 bg-[#9146FF] hover:bg-[#772CE8] px-4 py-2 rounded-full font-medium text-sm transition-colors">
-            <LogIn className="w-4 h-4" />
-            Connexion Twitch
-          </button>
-        )}
-      </div>
       <div className="max-w-2xl mx-auto">
         <div className="flex items-center gap-4 mb-8">
-          <Link to="/" className="p-2 bg-zinc-900 hover:bg-zinc-800 rounded-full transition-colors border border-zinc-800">
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <h1 className="text-3xl font-bold ml-4">Proposer une question</h1>
+          <h1 className="text-3xl font-bold">Proposer une question</h1>
         </div>
 
         <div className="bg-zinc-900 p-8 rounded-3xl border border-zinc-800 shadow-xl">

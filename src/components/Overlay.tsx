@@ -27,6 +27,107 @@ export default function Overlay() {
       }
     });
 
+    socket.on('player_joined', (player: Player) => {
+      setRoom(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          players: { ...prev.players, [player.id]: player }
+        };
+      });
+    });
+
+    socket.on('player_answered', ({ playerId, hasAnswered }) => {
+      setRoom(prev => {
+        if (!prev) return null;
+        const player = prev.players[playerId];
+        if (!player) return prev;
+        return {
+          ...prev,
+          players: {
+            ...prev.players,
+            [playerId]: { ...player, hasAnswered }
+          }
+        };
+      });
+    });
+
+    socket.on('game_started', ({ status, currentQuestionIndex, questionStartTime, serverTime }) => {
+      if (serverTime) setTimeOffset(Date.now() - serverTime);
+      setRoom(prev => {
+        if (!prev) return null;
+        const newPlayers = { ...prev.players };
+        Object.keys(newPlayers).forEach(id => {
+          newPlayers[id] = { ...newPlayers[id], hasAnswered: false, score: 0 };
+        });
+        return {
+          ...prev,
+          status,
+          currentQuestionIndex,
+          questionStartTime,
+          showAnswer: false,
+          players: newPlayers
+        };
+      });
+      setNextQuestionTimeLeft(10000);
+    });
+
+    socket.on('question_started', ({ currentQuestionIndex, questionStartTime, serverTime }) => {
+      if (serverTime) setTimeOffset(Date.now() - serverTime);
+      setRoom(prev => {
+        if (!prev) return null;
+        const newPlayers = { ...prev.players };
+        Object.keys(newPlayers).forEach(id => {
+          newPlayers[id] = { ...newPlayers[id], hasAnswered: false, isCorrect: undefined, answerTime: undefined };
+        });
+        return {
+          ...prev,
+          currentQuestionIndex,
+          questionStartTime,
+          showAnswer: false,
+          players: newPlayers
+        };
+      });
+      setNextQuestionTimeLeft(10000);
+    });
+
+    socket.on('answer_revealed', ({ correctOptionIndex, players }) => {
+      setRoom(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          showAnswer: true,
+          players: players
+        };
+      });
+      setNextQuestionTimeLeft(5000); // Match server's 5s delay
+    });
+
+    socket.on('game_finished', ({ status, players }) => {
+      setRoom(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          status,
+          players
+        };
+      });
+    });
+
+    socket.on('room_restarted', ({ status, players }) => {
+      setRoom(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          status,
+          currentQuestionIndex: 0,
+          questionStartTime: null,
+          showAnswer: false,
+          players
+        };
+      });
+    });
+
     socket.on('room_closed', () => {
       setRoom(null);
     });
@@ -38,6 +139,13 @@ export default function Overlay() {
 
     return () => {
       socket.off('room_update');
+      socket.off('player_joined');
+      socket.off('player_answered');
+      socket.off('game_started');
+      socket.off('question_started');
+      socket.off('answer_revealed');
+      socket.off('game_finished');
+      socket.off('room_restarted');
       socket.off('room_closed');
       socket.off('item_used');
     };

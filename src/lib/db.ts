@@ -5,11 +5,11 @@ import type { GlobalLeaderboardEntry, SubmittedQuestion, Question, Theme } from 
 dotenv.config();
 
 export const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  port: parseInt(process.env.DB_PORT),
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT || '3306'),
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || 'root123',
+  database: process.env.DB_NAME || 'twitch_live_quiz',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
@@ -184,6 +184,44 @@ export async function updateUserProfile(username: string, avatar: string | undef
     `, [username, avatar, score, coinsEarned, JSON.stringify(mergedBadges)]);
   } catch (error) {
     console.error('Error updating user profile:', error);
+  }
+}
+
+export async function batchUpdateUserProfiles(updates: { username: string, avatar: string | undefined, score: number, coinsEarned: number, newBadges: string[] }[]) {
+  if (updates.length === 0) return;
+  
+  try {
+    // We can't easily do a single query for multiple different updates with different values for each field in MySQL without complex CASE statements
+    // But we can at least use a transaction to make it atomic and slightly faster
+    const connection = await pool.getConnection();
+    await connection.beginTransaction();
+    
+    try {
+      for (const update of updates) {
+        const [rows]: any = await connection.query('SELECT badges FROM leaderboard WHERE username = ?', [update.username]);
+        const currentBadges = rows.length > 0 ? (typeof rows[0].badges === 'string' ? JSON.parse(rows[0].badges) : (rows[0].badges || [])) : [];
+        const mergedBadges = Array.from(new Set([...currentBadges, ...update.newBadges]));
+
+        await connection.query(`
+          INSERT INTO leaderboard (username, avatar, score, games_played, coins, badges, inventory) 
+          VALUES (?, ?, ?, 1, ?, ?, '[]') 
+          ON DUPLICATE KEY UPDATE 
+            avatar = VALUES(avatar),
+            score = GREATEST(score, VALUES(score)),
+            games_played = games_played + 1,
+            coins = coins + VALUES(coins),
+            badges = VALUES(badges)
+        `, [update.username, update.avatar, update.score, update.coinsEarned, JSON.stringify(mergedBadges)]);
+      }
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('Error batch updating user profiles:', error);
   }
 }
 

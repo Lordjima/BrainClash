@@ -91,31 +91,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-transparent text-white flex flex-col items-center justify-center p-6">
-      {/* Header / Profile */}
-      <div className="absolute top-6 left-6">
-        <Logo />
-      </div>
-      <div className="absolute top-6 right-6">
-        {twitchUser ? (
-          <Link to="/profile" className="flex items-center gap-3 bg-zinc-900 hover:bg-zinc-800 px-4 py-2 rounded-full border border-zinc-800 transition-colors">
-            <span className="font-medium text-sm">{twitchUser.display_name}</span>
-            {twitchUser.profile_image_url ? (
-              <img src={twitchUser.profile_image_url} alt="Profile" className="w-8 h-8 rounded-full" referrerPolicy="no-referrer" />
-            ) : (
-              <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center">
-                <User className="w-4 h-4 text-white" />
-              </div>
-            )}
-          </Link>
-        ) : (
-          <button onClick={handleTwitchLogin} className="flex items-center gap-2 bg-[#9146FF] hover:bg-[#772CE8] px-4 py-2 rounded-full font-medium text-sm transition-colors">
-            <LogIn className="w-4 h-4" />
-            Connexion Twitch
-          </button>
-        )}
-      </div>
-
-      <div className="max-w-4xl w-full grid grid-cols-1 md:grid-cols-2 gap-8 mt-16">
+      <div className="max-w-4xl w-full grid grid-cols-1 md:grid-cols-2 gap-8">
         
         {/* Join Room Side */}
         <div className="bg-zinc-900 p-8 rounded-3xl border border-zinc-800 shadow-xl">

@@ -87,6 +87,107 @@ export default function PlayerScreen() {
       }
     });
 
+    socket.on('player_joined', (player: Player) => {
+      setRoom(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          players: { ...prev.players, [player.id]: player }
+        };
+      });
+    });
+
+    socket.on('player_answered', ({ playerId, hasAnswered }) => {
+      setRoom(prev => {
+        if (!prev) return null;
+        const player = prev.players[playerId];
+        if (!player) return prev;
+        return {
+          ...prev,
+          players: {
+            ...prev.players,
+            [playerId]: { ...player, hasAnswered }
+          }
+        };
+      });
+    });
+
+    socket.on('game_started', ({ status, currentQuestionIndex, questionStartTime, serverTime }) => {
+      if (serverTime) setTimeOffset(Date.now() - serverTime);
+      setRoom(prev => {
+        if (!prev) return null;
+        const newPlayers = { ...prev.players };
+        Object.keys(newPlayers).forEach(id => {
+          newPlayers[id] = { ...newPlayers[id], hasAnswered: false, score: 0 };
+        });
+        return {
+          ...prev,
+          status,
+          currentQuestionIndex,
+          questionStartTime,
+          showAnswer: false,
+          players: newPlayers
+        };
+      });
+      setSelectedAnswer(null);
+    });
+
+    socket.on('question_started', ({ currentQuestionIndex, questionStartTime, serverTime }) => {
+      if (serverTime) setTimeOffset(Date.now() - serverTime);
+      setRoom(prev => {
+        if (!prev) return null;
+        const newPlayers = { ...prev.players };
+        Object.keys(newPlayers).forEach(id => {
+          newPlayers[id] = { ...newPlayers[id], hasAnswered: false, isCorrect: undefined, answerTime: undefined };
+        });
+        return {
+          ...prev,
+          currentQuestionIndex,
+          questionStartTime,
+          showAnswer: false,
+          players: newPlayers
+        };
+      });
+      setSelectedAnswer(null);
+    });
+
+    socket.on('answer_revealed', ({ correctOptionIndex, players }) => {
+      setRoom(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          showAnswer: true,
+          players: players
+        };
+      });
+    });
+
+    socket.on('game_finished', ({ status, players }) => {
+      setRoom(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          status,
+          players
+        };
+      });
+    });
+
+    socket.on('room_restarted', ({ status, players }) => {
+      setRoom(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          status,
+          currentQuestionIndex: 0,
+          questionStartTime: null,
+          showAnswer: false,
+          players
+        };
+      });
+      setSelectedAnswer(null);
+    });
+
     socket.on('error', (msg) => {
       alert(msg);
       navigate('/');
@@ -99,6 +200,13 @@ export default function PlayerScreen() {
 
     return () => {
       socket.off('room_update');
+      socket.off('player_joined');
+      socket.off('player_answered');
+      socket.off('game_started');
+      socket.off('question_started');
+      socket.off('answer_revealed');
+      socket.off('game_finished');
+      socket.off('room_restarted');
       socket.off('error');
       socket.off('room_closed');
     };

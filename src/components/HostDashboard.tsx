@@ -17,8 +17,111 @@ export default function HostDashboard() {
       setRoom(updatedRoom);
     });
 
+    socket.on('player_joined', (player: Player) => {
+      setRoom(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          players: { ...prev.players, [player.id]: player }
+        };
+      });
+    });
+
+    socket.on('player_answered', ({ playerId, hasAnswered }) => {
+      setRoom(prev => {
+        if (!prev) return null;
+        const player = prev.players[playerId];
+        if (!player) return prev;
+        return {
+          ...prev,
+          players: {
+            ...prev.players,
+            [playerId]: { ...player, hasAnswered }
+          }
+        };
+      });
+    });
+
+    socket.on('game_started', ({ status, currentQuestionIndex, questionStartTime }) => {
+      setRoom(prev => {
+        if (!prev) return null;
+        const newPlayers = { ...prev.players };
+        Object.keys(newPlayers).forEach(id => {
+          newPlayers[id] = { ...newPlayers[id], hasAnswered: false, score: 0 };
+        });
+        return {
+          ...prev,
+          status,
+          currentQuestionIndex,
+          questionStartTime,
+          showAnswer: false,
+          players: newPlayers
+        };
+      });
+    });
+
+    socket.on('question_started', ({ currentQuestionIndex, questionStartTime }) => {
+      setRoom(prev => {
+        if (!prev) return null;
+        const newPlayers = { ...prev.players };
+        Object.keys(newPlayers).forEach(id => {
+          newPlayers[id] = { ...newPlayers[id], hasAnswered: false, isCorrect: undefined, answerTime: undefined };
+        });
+        return {
+          ...prev,
+          currentQuestionIndex,
+          questionStartTime,
+          showAnswer: false,
+          players: newPlayers
+        };
+      });
+    });
+
+    socket.on('answer_revealed', ({ correctOptionIndex, players }) => {
+      setRoom(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          showAnswer: true,
+          players: players
+        };
+      });
+    });
+
+    socket.on('game_finished', ({ status, players }) => {
+      setRoom(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          status,
+          players
+        };
+      });
+    });
+
+    socket.on('room_restarted', ({ status, players }) => {
+      setRoom(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          status,
+          currentQuestionIndex: 0,
+          questionStartTime: null,
+          showAnswer: false,
+          players
+        };
+      });
+    });
+
     return () => {
       socket.off('room_update');
+      socket.off('player_joined');
+      socket.off('player_answered');
+      socket.off('game_started');
+      socket.off('question_started');
+      socket.off('answer_revealed');
+      socket.off('game_finished');
+      socket.off('room_restarted');
     };
   }, [id]);
 
@@ -50,7 +153,6 @@ export default function HostDashboard() {
           {/* Header */}
           <div className="bg-zinc-900 rounded-2xl p-6 border border-zinc-800 flex items-center justify-between">
             <div className="flex items-center gap-6">
-              <Logo />
               <div>
                 <h1 className="text-zinc-400 text-sm font-medium uppercase tracking-wider mb-1">
                   {room.name ? `Code du salon - ${room.name}` : 'Code du salon'}

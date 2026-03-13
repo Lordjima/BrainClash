@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { socket } from '../lib/socket';
-import { Play, Settings, Save, History, ArrowLeft, Trash2 } from 'lucide-react';
-import { SavedQuiz, Theme } from '../types';
+import { Play, Settings, Save, History, ArrowLeft, Trash2, Upload, FileText } from 'lucide-react';
+import { SavedQuiz, Theme, Question } from '../types';
 import Logo from './Logo';
 
 export default function CreateQuiz() {
@@ -73,23 +73,83 @@ export default function CreateQuiz() {
     localStorage.setItem('saved_quizzes', JSON.stringify(updated));
   };
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      const lines = text.split('\n');
+      const questions: any[] = [];
+
+      // Skip header if it exists
+      const startLine = lines[0].toLowerCase().includes('question') ? 1 : 0;
+
+      for (let i = startLine; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        // Simple CSV parsing
+        const parts = line.split(',').map(p => p.trim().replace(/^"|"$/g, ''));
+        
+        if (parts.length >= 6) {
+          const qText = parts[0];
+          const opts = [parts[1], parts[2], parts[3], parts[4]];
+          const correctIdx = parseInt(parts[5]);
+          const tLimit = parts[6] ? parseInt(parts[6]) : 15;
+
+          if (!isNaN(correctIdx) && correctIdx >= 0 && correctIdx <= 3) {
+            questions.push({
+              text: qText,
+              options: opts,
+              correctOptionIndex: correctIdx,
+              timeLimit: tLimit
+            });
+          }
+        }
+      }
+
+      if (questions.length > 0) {
+        socket.emit('bulk_add_questions', { themeId: theme, questions });
+        alert(`${questions.length} questions importées avec succès dans le thème "${themes[theme]?.name || theme}" !`);
+      } else {
+        alert('Aucune question valide trouvée. Format: Question,Opt1,Opt2,Opt3,Opt4,IndexCorrect,Temps');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
   return (
     <div className="min-h-screen bg-transparent text-white p-6">
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
-            <Link to="/" className="p-2 bg-zinc-900 hover:bg-zinc-800 rounded-full transition-colors border border-zinc-800">
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            <Logo />
-            <h1 className="text-3xl font-bold ml-4">Créer un Quiz</h1>
+            <h1 className="text-3xl font-bold">Créer un Quiz</h1>
           </div>
-          <button
-            onClick={() => navigate('/review-questions')}
-            className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-xl transition-colors flex items-center gap-2"
-          >
-            Vérifier les questions abonnés
-          </button>
+          <div className="flex items-center gap-3">
+            <input
+              type="file"
+              id="csv-upload"
+              accept=".csv"
+              className="hidden"
+              onChange={handleFileUpload}
+            />
+            <label
+              htmlFor="csv-upload"
+              className="bg-zinc-800 hover:bg-zinc-700 text-white font-bold py-2 px-4 rounded-xl transition-colors flex items-center gap-2 cursor-pointer border border-zinc-700"
+            >
+              <Upload className="w-4 h-4 text-blue-400" />
+              Importer Questions (CSV)
+            </label>
+            <button
+              onClick={() => navigate('/review-questions')}
+              className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-xl transition-colors flex items-center gap-2"
+            >
+              Vérifier les questions abonnés
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
