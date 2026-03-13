@@ -8,20 +8,21 @@ dotenv.config();
 let mysqlPool: mysql.Pool | null = null;
 let sqliteDb: any = null;
 
-export const useMySQL = process.env.USE_MYSQL === 'true' && !!process.env.DB_HOST;
+export let useMySQL = process.env.USE_MYSQL === 'true' && !!process.env.DB_HOST;
 
 export async function getDb() {
   if (useMySQL) {
     if (!mysqlPool) {
       mysqlPool = mysql.createPool({
-        host: process.env.DB_HOST || 'localhost',
+        host: process.env.DB_HOST || '127.0.0.1',
         port: parseInt(process.env.DB_PORT || '3306'),
         user: process.env.DB_USER || 'root',
         password: process.env.DB_PASSWORD || '',
         database: process.env.DB_NAME || 'brainclash',
         waitForConnections: true,
         connectionLimit: 10,
-        queueLimit: 0
+        queueLimit: 0,
+        connectTimeout: 5000 // Add timeout to fail faster
       });
     }
     return mysqlPool;
@@ -38,18 +39,27 @@ export async function getDb() {
 export async function initDB() {
   try {
     console.log(`🚀 Initialisation de la base de données ${useMySQL ? 'MySQL' : 'SQLite'}...`);
-    const db = await getDb();
-    if (useMySQL) {
-      const pool = db as mysql.Pool;
-      
-      // Check connection
-      try {
+    let db;
+    try {
+      db = await getDb();
+      if (useMySQL) {
+        const pool = db as mysql.Pool;
+        // Check connection
         await pool.getConnection();
-      } catch (connErr) {
-        console.error("❌ CRITICAL: Impossible de se connecter à MySQL. Vérifiez vos variables d'environnement (DB_HOST, DB_USER, etc.)");
+      }
+    } catch (connErr) {
+      if (useMySQL) {
+        console.warn("⚠️ MySQL connection failed. Falling back to SQLite:", (connErr as Error).message);
+        useMySQL = false;
+        mysqlPool = null;
+        db = await getDb();
+      } else {
         throw connErr;
       }
+    }
 
+    if (useMySQL) {
+      const pool = db as mysql.Pool;
       await pool.query(`
         CREATE TABLE IF NOT EXISTS users (
           username VARCHAR(191) PRIMARY KEY,
@@ -70,15 +80,15 @@ export async function initDB() {
 
       await pool.query(`
         CREATE TABLE IF NOT EXISTS categories (
-          id VARCHAR(191) PRIMARY KEY,
+          id INT AUTO_INCREMENT PRIMARY KEY,
           name VARCHAR(255) NOT NULL
         )
       `);
 
       await pool.query(`
         CREATE TABLE IF NOT EXISTS questions (
-          id VARCHAR(191) PRIMARY KEY,
-          category_id VARCHAR(191) NOT NULL,
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          category_id INT NOT NULL,
           text TEXT NOT NULL,
           options JSON NOT NULL,
           correctOptionIndex INT NOT NULL,
@@ -91,7 +101,7 @@ export async function initDB() {
 
       await pool.query(`
         CREATE TABLE IF NOT EXISTS badges (
-          id VARCHAR(191) PRIMARY KEY,
+          id INT AUTO_INCREMENT PRIMARY KEY,
           name VARCHAR(255) NOT NULL,
           description TEXT,
           icon VARCHAR(255)
@@ -100,8 +110,8 @@ export async function initDB() {
 
       await pool.query(`
         CREATE TABLE IF NOT EXISTS user_badges (
-          username VARCHAR(120),
-          badge_id VARCHAR(120),
+          username VARCHAR(191),
+          badge_id INT,
           level INT NOT NULL DEFAULT 1,
           xp INT NOT NULL DEFAULT 0,
           earned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -113,8 +123,8 @@ export async function initDB() {
 
       await pool.query(`
         CREATE TABLE IF NOT EXISTS submit_questions (
-          id VARCHAR(191) PRIMARY KEY,
-          category_id VARCHAR(191) NOT NULL,
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          category_id INT NOT NULL,
           text TEXT NOT NULL,
           options JSON NOT NULL,
           correctOptionIndex INT NOT NULL,
@@ -127,7 +137,7 @@ export async function initDB() {
 
       await pool.query(`
         CREATE TABLE IF NOT EXISTS shop_items (
-          id VARCHAR(191) PRIMARY KEY,
+          id INT AUTO_INCREMENT PRIMARY KEY,
           name VARCHAR(255) NOT NULL,
           description TEXT,
           price INT NOT NULL,
@@ -138,9 +148,9 @@ export async function initDB() {
 
       await pool.query(`
         CREATE TABLE IF NOT EXISTS auction_items (
-          id VARCHAR(191) PRIMARY KEY,
+          id INT AUTO_INCREMENT PRIMARY KEY,
           seller VARCHAR(191) NOT NULL,
-          item_id VARCHAR(191) NOT NULL,
+          item_id INT NOT NULL,
           price INT NOT NULL,
           currency ENUM('coins', 'brainCoins') DEFAULT 'coins',
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -202,13 +212,13 @@ export async function initDB() {
         );
 
         CREATE TABLE IF NOT EXISTS categories (
-          id TEXT PRIMARY KEY,
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
           name TEXT NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS questions (
-          id TEXT PRIMARY KEY,
-          category_id TEXT NOT NULL,
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          category_id INTEGER NOT NULL,
           text TEXT NOT NULL,
           options TEXT NOT NULL,
           correctOptionIndex INTEGER NOT NULL,
@@ -219,7 +229,7 @@ export async function initDB() {
         );
 
         CREATE TABLE IF NOT EXISTS badges (
-          id TEXT PRIMARY KEY,
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
           name TEXT NOT NULL,
           description TEXT,
           icon TEXT
@@ -227,7 +237,7 @@ export async function initDB() {
 
         CREATE TABLE IF NOT EXISTS user_badges (
           username TEXT,
-          badge_id TEXT,
+          badge_id INTEGER,
           level INTEGER NOT NULL DEFAULT 1,
           xp INTEGER NOT NULL DEFAULT 0,
           earned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -237,8 +247,8 @@ export async function initDB() {
         );
 
         CREATE TABLE IF NOT EXISTS submit_questions (
-          id TEXT PRIMARY KEY,
-          category_id TEXT NOT NULL,
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          category_id INTEGER NOT NULL,
           text TEXT NOT NULL,
           options TEXT NOT NULL,
           correctOptionIndex INTEGER NOT NULL,
@@ -249,7 +259,7 @@ export async function initDB() {
         );
 
         CREATE TABLE IF NOT EXISTS shop_items (
-          id TEXT PRIMARY KEY,
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
           name TEXT NOT NULL,
           description TEXT,
           price INTEGER NOT NULL,
@@ -258,18 +268,18 @@ export async function initDB() {
         );
 
         CREATE TABLE IF NOT EXISTS custom_questions (
-          id TEXT PRIMARY KEY,
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
           username TEXT NOT NULL,
-          question_id TEXT NOT NULL,
+          question_id INTEGER NOT NULL,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE,
           FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE
         );
 
         CREATE TABLE IF NOT EXISTS auction_items (
-          id TEXT PRIMARY KEY,
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
           seller TEXT NOT NULL,
-          item_id TEXT NOT NULL,
+          item_id INTEGER NOT NULL,
           price INTEGER NOT NULL,
           currency TEXT DEFAULT 'coins',
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -326,9 +336,9 @@ async function seedData() {
 
     for (const badge of badges) {
       if (useMySQL) {
-        await (db as mysql.Pool).query('INSERT IGNORE INTO badges (id, name, description, icon) VALUES (?, ?, ?, ?)', [badge.id, badge.name, badge.description, badge.icon]);
+        await (db as mysql.Pool).query('INSERT IGNORE INTO badges (name, description, icon) VALUES (?, ?, ?)', [badge.name, badge.description, badge.icon]);
       } else {
-        (db as any).prepare('INSERT OR IGNORE INTO badges (id, name, description, icon) VALUES (?, ?, ?, ?)').run(badge.id, badge.name, badge.description, badge.icon);
+        (db as any).prepare('INSERT OR IGNORE INTO badges (name, description, icon) VALUES (?, ?, ?)').run(badge.name, badge.description, badge.icon);
       }
     }
 
@@ -342,24 +352,23 @@ async function seedData() {
 
     for (const item of shopItems) {
       if (useMySQL) {
-        await (db as mysql.Pool).query('INSERT IGNORE INTO shop_items (id, name, description, price, icon, type) VALUES (?, ?, ?, ?, ?, ?)', [item.id, item.name, item.description, item.price, item.icon, item.type]);
+        await (db as mysql.Pool).query('INSERT IGNORE INTO shop_items (name, description, price, icon, type) VALUES (?, ?, ?, ?, ?)', [item.name, item.description, item.price, item.icon, item.type]);
       } else {
-        (db as any).prepare('INSERT OR IGNORE INTO shop_items (id, name, description, price, icon, type) VALUES (?, ?, ?, ?, ?, ?)').run(item.id, item.name, item.description, item.price, item.icon, item.type);
+        (db as any).prepare('INSERT OR IGNORE INTO shop_items (name, description, price, icon, type) VALUES (?, ?, ?, ?, ?)').run(item.name, item.description, item.price, item.icon, item.type);
       }
     }
 
     // Seed some default categories and questions if empty
     const themes = await getThemesWithQuestions();
     if (Object.keys(themes).length === 0) {
-      await addTheme('general', 'Culture Générale');
+      await addTheme('Culture Générale');
       await addQuestion({
         id: 'q1',
-        category_id: 'general',
         text: 'Quelle est la capitale de la France ?',
         options: ['Londres', 'Paris', 'Berlin', 'Madrid'],
         correctOptionIndex: 1,
         timeLimit: 15
-      }, 'general', false);
+      }, 1, false);
     }
 
   } catch (err) {
@@ -405,7 +414,6 @@ export async function getThemesWithQuestions(): Promise<Record<string, Theme>> {
       if (result[q.category_id]) {
         result[q.category_id].questions.push({
           id: q.id,
-          category_id: q.category_id,
           text: q.text,
           options: typeof q.options === 'string' ? JSON.parse(q.options) : q.options,
           correctOptionIndex: q.correctOptionIndex,
@@ -420,31 +428,34 @@ export async function getThemesWithQuestions(): Promise<Record<string, Theme>> {
   }
 }
 
-export async function addTheme(id: string, name: string) {
+export async function addTheme(name: string): Promise<number | null> {
   try {
     const db = await getDb();
     if (useMySQL) {
-      await (db as mysql.Pool).query('INSERT IGNORE INTO categories (id, name) VALUES (?, ?)', [id, name]);
+      const [result] = await (db as mysql.Pool).query('INSERT IGNORE INTO categories (name) VALUES (?)', [name]);
+      return (result as any).insertId;
     } else {
-      (db as any).prepare('INSERT OR IGNORE INTO categories (id, name) VALUES (?, ?)').run(id, name);
+      const info = (db as any).prepare('INSERT OR IGNORE INTO categories (name) VALUES (?)').run(name);
+      return info.lastInsertRowid;
     }
   } catch (error) {
     console.error('Error adding category:', error);
+    return null;
   }
 }
 
-export async function addQuestion(q: Question, categoryId: string, isCustom: boolean = true) {
+export async function addQuestion(q: Question, categoryId: string | number, isCustom: boolean = true) {
   try {
     const db = await getDb();
     if (useMySQL) {
       await (db as mysql.Pool).query(
-        'INSERT INTO questions (id, category_id, text, options, correctOptionIndex, timeLimit, is_custom) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [q.id, categoryId, q.text, JSON.stringify(q.options), q.correctOptionIndex, q.timeLimit || 15, isCustom]
+        'INSERT INTO questions (category_id, text, options, correctOptionIndex, timeLimit, is_custom) VALUES (?, ?, ?, ?, ?, ?)',
+        [categoryId, q.text, JSON.stringify(q.options), q.correctOptionIndex, q.timeLimit || 15, isCustom]
       );
     } else {
       (db as any).prepare(
-        'INSERT INTO questions (id, category_id, text, options, correctOptionIndex, timeLimit, is_custom) VALUES (?, ?, ?, ?, ?, ?, ?)'
-      ).run(q.id, categoryId, q.text, JSON.stringify(q.options), q.correctOptionIndex, q.timeLimit || 15, isCustom ? 1 : 0);
+        'INSERT INTO questions (category_id, text, options, correctOptionIndex, timeLimit, is_custom) VALUES (?, ?, ?, ?, ?, ?)'
+      ).run(categoryId, q.text, JSON.stringify(q.options), q.correctOptionIndex, q.timeLimit || 15, isCustom ? 1 : 0);
     }
   } catch (error) {
     console.error('Error adding question:', error);
@@ -477,12 +488,30 @@ export async function getLeaderboard(): Promise<GlobalLeaderboardEntry[]> {
         ORDER BY u.score DESC LIMIT 50
       `).all();
     }
-    return rows.map(row => ({
-      ...row,
-      is_sub: !!row.is_sub,
-      badges: row.badges ? row.badges.split(',') : [],
-      inventory: typeof row.inventory === 'string' ? JSON.parse(row.inventory) : (row.inventory || [])
-    }));
+    return rows.map(row => {
+      let parsedInventory: (string | number)[] = [];
+      try {
+        const inv = typeof row.inventory === 'string' ? JSON.parse(row.inventory) : (row.inventory || []);
+        if (Array.isArray(inv)) {
+          parsedInventory = inv;
+        } else if (typeof inv === 'object' && inv !== null) {
+          for (const [key, val] of Object.entries(inv)) {
+            for (let i = 0; i < (val as number); i++) {
+              parsedInventory.push(key);
+            }
+          }
+        }
+      } catch (e) {
+        parsedInventory = [];
+      }
+
+      return {
+        ...row,
+        is_sub: !!row.is_sub,
+        badges: row.badges ? row.badges.split(',') : [],
+        inventory: parsedInventory
+      };
+    });
   } catch (error) {
     console.error('Error fetching leaderboard:', error);
     return [];
@@ -517,11 +546,27 @@ export async function getUserProfile(username: string): Promise<GlobalLeaderboar
     }
     if (rows.length > 0) {
       const row = rows[0];
+      let parsedInventory: (string | number)[] = [];
+      try {
+        const inv = typeof row.inventory === 'string' ? JSON.parse(row.inventory) : (row.inventory || []);
+        if (Array.isArray(inv)) {
+          parsedInventory = inv;
+        } else if (typeof inv === 'object' && inv !== null) {
+          for (const [key, val] of Object.entries(inv)) {
+            for (let i = 0; i < (val as number); i++) {
+              parsedInventory.push(key);
+            }
+          }
+        }
+      } catch (e) {
+        parsedInventory = [];
+      }
+
       return {
         ...row,
         is_sub: !!row.is_sub,
         badges: row.badges ? row.badges.split(',') : [],
-        inventory: typeof row.inventory === 'string' ? JSON.parse(row.inventory) : (row.inventory || [])
+        inventory: parsedInventory
       };
     }
     
@@ -546,7 +591,7 @@ export async function getUserProfile(username: string): Promise<GlobalLeaderboar
   }
 }
 
-export async function batchUpdateUserProfiles(updates: { username: string, avatar: string | undefined, score: number, coinsEarned: number, newBadges: string[] }[]) {
+export async function batchUpdateUserProfiles(updates: { username: string, avatar: string | undefined, score: number, coinsEarned: number, newBadges: (string | number)[] }[]) {
   if (updates.length === 0) return;
   
   try {
@@ -612,7 +657,7 @@ export async function batchUpdateUserProfiles(updates: { username: string, avata
   }
 }
 
-export async function buyItem(username: string, itemId: string, cost: number): Promise<boolean> {
+export async function buyItem(username: string, itemId: string | number, cost: number): Promise<boolean> {
   try {
     const db = await getDb();
     const profile = await getUserProfile(username);
@@ -631,7 +676,7 @@ export async function buyItem(username: string, itemId: string, cost: number): P
   }
 }
 
-export async function useItem(username: string, itemId: string): Promise<boolean> {
+export async function useItem(username: string, itemId: string | number): Promise<boolean> {
   try {
     const db = await getDb();
     const profile = await getUserProfile(username);
@@ -699,21 +744,21 @@ export async function addSubmittedQuestion(q: SubmittedQuestion) {
     const db = await getDb();
     if (useMySQL) {
       await (db as mysql.Pool).query(`
-        INSERT INTO submit_questions (id, category_id, text, options, correctOptionIndex, author, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `, [q.id, q.theme, q.text, JSON.stringify(q.options), q.correctOptionIndex, q.author, q.status]);
+        INSERT INTO submit_questions (category_id, text, options, correctOptionIndex, author, status)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `, [q.theme, q.text, JSON.stringify(q.options), q.correctOptionIndex, q.author, q.status]);
     } else {
       (db as any).prepare(`
-        INSERT INTO submit_questions (id, category_id, text, options, correctOptionIndex, author, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(q.id, q.theme, q.text, JSON.stringify(q.options), q.correctOptionIndex, q.author, q.status);
+        INSERT INTO submit_questions (category_id, text, options, correctOptionIndex, author, status)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(q.theme, q.text, JSON.stringify(q.options), q.correctOptionIndex, q.author, q.status);
     }
   } catch (error) {
     console.error('Error adding submitted question:', error);
   }
 }
 
-export async function updateSubmittedQuestionStatus(id: string, status: 'approved' | 'rejected') {
+export async function updateSubmittedQuestionStatus(id: string | number, status: 'approved' | 'rejected') {
   try {
     const db = await getDb();
     if (useMySQL) {
@@ -774,7 +819,7 @@ export async function getAuctionItems(): Promise<any[]> {
   }
 }
 
-export async function awardBadgeXp(username: string, badgeId: string, xp: number) {
+export async function awardBadgeXp(username: string, badgeId: string | number, xp: number) {
   try {
     const db = await getDb();
     if (useMySQL) {
@@ -856,7 +901,7 @@ export async function openLootBox(username: string, boxType: 'standard' | 'premi
   }
 }
 
-export async function listItemForAuction(username: string, itemId: string, price: number, currency: 'coins' | 'brainCoins'): Promise<boolean> {
+export async function listItemForAuction(username: string, itemId: string | number, price: number, currency: 'coins' | 'brainCoins'): Promise<boolean> {
   try {
     const db = await getDb();
     const profile = await getUserProfile(username);
@@ -873,10 +918,10 @@ export async function listItemForAuction(username: string, itemId: string, price
 
     if (useMySQL) {
       await (db as mysql.Pool).query('UPDATE users SET inventory = ? WHERE username = ?', [JSON.stringify(newInventory), username]);
-      await (db as mysql.Pool).query('INSERT INTO auction_items (id, seller, item_id, price, currency, created_at) VALUES (?, ?, ?, ?, ?, NOW())', [auctionId, username, itemId, price, currency]);
+      await (db as mysql.Pool).query('INSERT INTO auction_items (seller, item_id, price, currency, created_at) VALUES (?, ?, ?, ?, NOW())', [username, itemId, price, currency]);
     } else {
       (db as any).prepare('UPDATE users SET inventory = ? WHERE username = ?').run(JSON.stringify(newInventory), username);
-      (db as any).prepare('INSERT INTO auction_items (id, seller, item_id, price, currency, created_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)').run(auctionId, username, itemId, price, currency);
+      (db as any).prepare('INSERT INTO auction_items (seller, item_id, price, currency, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)').run(username, itemId, price, currency);
     }
 
     return true;

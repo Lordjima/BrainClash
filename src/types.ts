@@ -1,6 +1,5 @@
 export type Question = {
-  id: string;
-  category_id: string;
+  id: string | number;
   text: string;
   options: string[];
   correctOptionIndex: number;
@@ -8,7 +7,7 @@ export type Question = {
 };
 
 export type Player = {
-  id: string;
+  id: string | number;
   username: string;
   avatar?: string;
   score: number;
@@ -21,7 +20,7 @@ export type Player = {
 };
 
 export type RoomState = {
-  id: string;
+  id: string | number;
   name?: string;
   description?: string;
   hostId: string;
@@ -35,7 +34,7 @@ export type RoomState = {
 };
 
 export interface Badge {
-  id: string;
+  id: string | number;
   name: string;
   description: string;
   icon: string;
@@ -53,13 +52,13 @@ export type GlobalLeaderboardEntry = {
   brainCoins: number;
   is_sub: boolean;
   badges: string[];
-  inventory: string[];
+  inventory: (string | number)[];
   level: number;
   xp: number;
 };
 
 export type AuctionItem = {
-  id: string;
+  id: string | number;
   seller: string;
   itemId: string;
   price: number;
@@ -68,7 +67,7 @@ export type AuctionItem = {
 };
 
 export type ShopItem = {
-  id: string;
+  id: string | number;
   name: string;
   description: string;
   price: number;
@@ -77,13 +76,13 @@ export type ShopItem = {
 };
 
 export type Theme = {
-  id: string;
+  id: string | number;
   name: string;
   questions: Question[];
 };
 
 export type SavedQuiz = {
-  id: string;
+  id: string | number;
   name: string;
   description: string;
   theme: string;
@@ -92,7 +91,7 @@ export type SavedQuiz = {
 };
 
 export type SubmittedQuestion = {
-  id: string;
+  id: string | number;
   text: string;
   options: string[];
   correctOptionIndex: number;

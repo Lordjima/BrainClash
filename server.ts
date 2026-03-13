@@ -1,5 +1,4 @@
 import express from 'express';
-import { createServer as createViteServer } from 'vite';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import path from 'path';
@@ -434,20 +433,20 @@ async function startServer() {
         level: profile?.level || 1,
       };
 
-      socket.join(room.id);
+      socket.join(room.id.toString());
       socket.emit('room_joined', room.id);
       
       // Full update for the joining player
       socket.emit('room_update', { ...room, serverTime: Date.now() });
       
       // Granular update for others
-      socket.to(room.id).emit('player_joined', room.players[socket.id]);
+      socket.to(room.id.toString()).emit('player_joined', room.players[socket.id]);
     });
 
     socket.on('join_observer', (roomId) => {
       const room = rooms.get(roomId.toUpperCase());
       if (room) {
-        socket.join(room.id);
+        socket.join(room.id.toString());
         socket.emit('room_update', { ...room, serverTime: Date.now() });
       }
     });
@@ -464,6 +463,9 @@ async function startServer() {
     socket.on('start_quiz', (roomId) => {
       const room = rooms.get(roomId);
       if (room && room.hostId === socket.id) {
+        if (room.questions.length === 0) {
+          return socket.emit('error', 'Aucune question disponible pour ce thème.');
+        }
         room.status = 'active';
         room.currentQuestionIndex = 0;
         room.questionStartTime = Date.now();
@@ -727,6 +729,7 @@ async function startServer() {
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",

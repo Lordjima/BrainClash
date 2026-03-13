@@ -1,2 +1,1 @@
-import 'tsx/register';
-import './server.ts';
+import './dist-server/index.js';

@@ -144,7 +144,7 @@ export default function Dashboard() {
               <Play className="w-8 h-8 text-white ml-1" />
             </div>
           </div>
-          <h1 className="text-2xl font-bold text-center mb-2">Twitch Live Quiz</h1>
+          <h1 className="text-2xl font-bold text-center mb-2">BrainClash</h1>
           <p className="text-zinc-400 text-center mb-8 text-sm">
             Engagez votre chat avec des quiz interactifs en temps réel.
           </p>

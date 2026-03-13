@@ -25,7 +25,7 @@ export type QuizState = {
   showAnswer: boolean;
 };
 
-const STORAGE_KEY = 'twitch_quiz_state';
+const STORAGE_KEY = 'brainclash_state';
 
 export const defaultQuestions: Question[] = [
   {

@@ -73,7 +73,7 @@ export default function CreateQuiz() {
     });
   };
 
-  const handleDeleteSaved = (id: string) => {
+  const handleDeleteSaved = (id: string | number) => {
     const updated = savedQuizzes.filter(q => q.id !== id);
     setSavedQuizzes(updated);
     localStorage.setItem('saved_quizzes', JSON.stringify(updated));

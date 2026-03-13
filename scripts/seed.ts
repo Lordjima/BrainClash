@@ -3,58 +3,81 @@ import { v4 as uuidv4 } from 'uuid';
 import mysql from 'mysql2/promise';
 
 const categories = [
-  { id: 'general', name: 'Culture Générale' },
-  { id: 'gaming', name: 'Jeux Vidéo' },
-  { id: 'science', name: 'Science & Nature' },
-  { id: 'cinema', name: 'Cinéma & Séries' },
-  { id: 'histoire', name: 'Histoire' }
+  { name: 'Culture Générale' },
+  { name: 'Jeux Vidéo' },
+  { name: 'Science & Nature' },
+  { name: 'Cinéma & Séries' },
+  { name: 'Histoire' },
+  { name: 'Manga & Anime' },
+  { name: 'Sport' }
 ];
 
 const badges = [
-  { id: 'first_game', name: 'Premier Pas', description: 'A joué sa première partie', icon: '🎮' },
-  { id: 'veteran', name: 'Vétéran', description: 'A joué 10 parties', icon: '🎖️' },
-  { id: 'expert', name: 'Expert', description: 'A joué 50 parties', icon: '🎓' },
-  { id: 'champion', name: 'Champion', description: 'A fini premier d\'une partie', icon: '🏆' },
-  { id: 'rich', name: 'Crésus', description: 'A accumulé 1000 pièces', icon: '💰' },
-  { id: 'contributor', name: 'Contributeur', description: 'A proposé une question approuvée', icon: '✍️' }
+  { name: 'Premier Pas', description: 'A joué sa première partie', icon: '🎮' },
+  { name: 'Vétéran', description: 'A joué 10 parties', icon: '🎖️' },
+  { name: 'Expert', description: 'A joué 50 parties', icon: '🎓' },
+  { name: 'Champion', description: 'A fini premier d\'une partie', icon: '🏆' },
+  { name: 'Crésus', description: 'A accumulé 1000 pièces', icon: '💰' },
+  { name: 'Contributeur', description: 'A proposé une question approuvée', icon: '✍️' }
+];
+
+const shopItems = [
+  { name: 'Bouclier en Bois', description: 'Protège contre une attaque mineure', price: 50, icon: '🛡️', type: 'defense' },
+  { name: 'Bouclier en Fer', description: 'Protège contre une attaque moyenne', price: 150, icon: '🛡️', type: 'defense' },
+  { name: 'Potion de Soin', description: 'Restaure 25 HP', price: 30, icon: '🧪', type: 'bonus' },
+  { name: 'Grande Potion', description: 'Restaure 50 HP', price: 70, icon: '🧪', type: 'bonus' },
+  { name: 'Petite Bombe', description: 'Inflige 10 dégâts à un adversaire', price: 100, icon: '💣', type: 'attack' },
+  { name: 'Glace', description: 'Gèle un adversaire pendant 5 secondes', price: 200, icon: '❄️', type: 'attack' }
 ];
 
 const questions = [
   {
-    category_id: 'general',
+    category_id: 1,
     text: 'Quel est le plus grand océan du monde ?',
     options: ['Océan Atlantique', 'Océan Indien', 'Océan Pacifique', 'Océan Arctique'],
     correctOptionIndex: 2
   },
   {
-    category_id: 'general',
+    category_id: 1,
     text: 'Qui a peint la Joconde ?',
     options: ['Vincent van Gogh', 'Pablo Picasso', 'Léonard de Vinci', 'Claude Monet'],
     correctOptionIndex: 2
   },
   {
-    category_id: 'gaming',
+    category_id: 2,
     text: 'Quel est le nom du protagoniste dans The Legend of Zelda ?',
     options: ['Zelda', 'Link', 'Ganon', 'Sheik'],
     correctOptionIndex: 1
   },
   {
-    category_id: 'gaming',
+    category_id: 2,
     text: 'Quel studio a développé le jeu The Witcher 3 ?',
     options: ['Ubisoft', 'Bethesda', 'CD Projekt Red', 'Rockstar Games'],
     correctOptionIndex: 2
   },
   {
-    category_id: 'science',
+    category_id: 3,
     text: 'Quelle est la planète la plus proche du Soleil ?',
     options: ['Vénus', 'Mars', 'Mercure', 'Jupiter'],
     correctOptionIndex: 2
   },
   {
-    category_id: 'cinema',
+    category_id: 4,
     text: 'Qui a réalisé le film Inception ?',
     options: ['Steven Spielberg', 'Christopher Nolan', 'Quentin Tarantino', 'Martin Scorsese'],
     correctOptionIndex: 1
+  },
+  {
+    category_id: 6,
+    text: 'Dans Naruto, quel est le nom du démon renard à neuf queues ?',
+    options: ['Shukaku', 'Matatabi', 'Kurama', 'Gyuki'],
+    correctOptionIndex: 2
+  },
+  {
+    category_id: 7,
+    text: 'Combien de joueurs y a-t-il dans une équipe de football sur le terrain ?',
+    options: ['9', '10', '11', '12'],
+    correctOptionIndex: 2
   }
 ];
 
@@ -62,7 +85,7 @@ async function seed() {
   try {
     const db = await getDb();
     console.log('Suppression des anciennes tables pour la restructuration...');
-    const tablesToDrop = ['custom_questions', 'submit_questions', 'questions', 'user_badges', 'badges', 'categories', 'users', 'themes'];
+    const tablesToDrop = ['custom_questions', 'submit_questions', 'questions', 'user_badges', 'badges', 'categories', 'users', 'themes', 'shop_items', 'auction_items'];
     for (const table of tablesToDrop) {
       try {
         if (useMySQL) {
@@ -81,36 +104,71 @@ async function seed() {
     console.log('Insertion des catégories...');
     for (const cat of categories) {
       if (useMySQL) {
-        await (db as mysql.Pool).query('INSERT IGNORE INTO categories (id, name) VALUES (?, ?)', [cat.id, cat.name]);
+        await (db as mysql.Pool).query('INSERT IGNORE INTO categories (name) VALUES (?)', [cat.name]);
       } else {
-        (db as any).prepare('INSERT OR IGNORE INTO categories (id, name) VALUES (?, ?)').run(cat.id, cat.name);
+        (db as any).prepare('INSERT OR IGNORE INTO categories (name) VALUES (?)').run(cat.name);
       }
     }
 
     console.log('Insertion des badges...');
     for (const badge of badges) {
       if (useMySQL) {
-        await (db as mysql.Pool).query('INSERT IGNORE INTO badges (id, name, description, icon) VALUES (?, ?, ?, ?)', [badge.id, badge.name, badge.description, badge.icon]);
+        await (db as mysql.Pool).query('INSERT IGNORE INTO badges (name, description, icon) VALUES (?, ?, ?)', [badge.name, badge.description, badge.icon]);
       } else {
-        (db as any).prepare('INSERT OR IGNORE INTO badges (id, name, description, icon) VALUES (?, ?, ?, ?)').run(badge.id, badge.name, badge.description, badge.icon);
+        (db as any).prepare('INSERT OR IGNORE INTO badges (name, description, icon) VALUES (?, ?, ?)').run(badge.name, badge.description, badge.icon);
+      }
+    }
+    
+    console.log('Insertion des objets de la boutique...');
+    for (const item of shopItems) {
+      if (useMySQL) {
+        await (db as mysql.Pool).query('INSERT IGNORE INTO shop_items (name, description, price, icon, type) VALUES (?, ?, ?, ?, ?)', [item.name, item.description, item.price, item.icon, item.type]);
+      } else {
+        (db as any).prepare('INSERT OR IGNORE INTO shop_items (name, description, price, icon, type) VALUES (?, ?, ?, ?, ?)').run(item.name, item.description, item.price, item.icon, item.type);
       }
     }
     
     console.log('Insertion des questions...');
     for (const q of questions) {
-      const id = uuidv4();
       if (useMySQL) {
         await (db as mysql.Pool).query(
-          'INSERT INTO questions (id, category_id, text, options, correctOptionIndex, timeLimit, is_custom) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [id, q.category_id, q.text, JSON.stringify(q.options), q.correctOptionIndex, 15, false]
+          'INSERT INTO questions (category_id, text, options, correctOptionIndex, timeLimit, is_custom) VALUES (?, ?, ?, ?, ?, ?)',
+          [q.category_id, q.text, JSON.stringify(q.options), q.correctOptionIndex, 15, false]
         );
       } else {
         (db as any).prepare(
-          'INSERT INTO questions (id, category_id, text, options, correctOptionIndex, timeLimit, is_custom) VALUES (?, ?, ?, ?, ?, ?, ?)'
-        ).run(id, q.category_id, q.text, JSON.stringify(q.options), q.correctOptionIndex, 15, 0);
+          'INSERT INTO questions (category_id, text, options, correctOptionIndex, timeLimit, is_custom) VALUES (?, ?, ?, ?, ?, ?)'
+        ).run(q.category_id, q.text, JSON.stringify(q.options), q.correctOptionIndex, 15, 0);
       }
     }
     
+    console.log('Création du compte de test JimaG4ming avec des crédits...');
+    const testUser = {
+      username: 'JimaG4ming',
+      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=JimaG4ming',
+      score: 1500,
+      games_played: 10,
+      coins: 5000,
+      brainCoins: 1000,
+      level: 5,
+      xp: 2500,
+      hp: 100,
+      maxHp: 100,
+      is_sub: true,
+      inventory: JSON.stringify([1, 1, 3, 3, 3, 3, 3])
+    };
+    
+    if (useMySQL) {
+      await (db as mysql.Pool).query(
+        'INSERT IGNORE INTO users (username, avatar, score, games_played, coins, brainCoins, level, xp, hp, maxHp, is_sub, inventory) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [testUser.username, testUser.avatar, testUser.score, testUser.games_played, testUser.coins, testUser.brainCoins, testUser.level, testUser.xp, testUser.hp, testUser.maxHp, testUser.is_sub, testUser.inventory]
+      );
+    } else {
+      (db as any).prepare(
+        'INSERT OR IGNORE INTO users (username, avatar, score, games_played, coins, brainCoins, level, xp, hp, maxHp, is_sub, inventory) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      ).run(testUser.username, testUser.avatar, testUser.score, testUser.games_played, testUser.coins, testUser.brainCoins, testUser.level, testUser.xp, testUser.hp, testUser.maxHp, testUser.is_sub ? 1 : 0, testUser.inventory);
+    }
+
     console.log('Base de données initialisée avec succès !');
     process.exit(0);
   } catch (error) {
