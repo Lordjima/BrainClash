@@ -1,11 +1,11 @@
 {
-  "name": "react-example",
+  "name": "brainclash",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "npm run build:client && npm run build:server",
+    "build": "npm run build:client && npm run build:server && npm run clean && npm run seed && npm run start",
     "build:client": "vite build",
     "build:server": "esbuild server.ts --bundle --platform=node --target=node20 --outfile=dist-server/index.cjs --format=cjs --external:mysql2 --external:vite --external:lightningcss",
     "preview": "vite preview",

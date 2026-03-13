@@ -177,74 +177,190 @@ async function startServer() {
   };
 
   app.get('/api/auth/twitch/url', (req, res) => {
-    const redirectUri = req.query.redirect_uri as string || getRedirectUri(req);
+    const redirectUri = (req.query.redirect_uri as string) || getRedirectUri(req);
+
+    if (!process.env.TWITCH_CLIENT_ID) {
+      return res.status(500).json({ error: 'TWITCH_CLIENT_ID manquant' });
+    }
+
+    const state = Math.random().toString(36).slice(2) + Date.now().toString(36);
+
     const params = new URLSearchParams({
-      client_id: process.env.TWITCH_CLIENT_ID || '',
+      client_id: process.env.TWITCH_CLIENT_ID,
       redirect_uri: redirectUri,
       response_type: 'code',
       scope: 'user:read:email',
-      state: redirectUri // Pass the redirectUri in the state parameter
+      state
     });
-    res.json({ url: `https://id.twitch.tv/oauth2/authorize?${params}` });
+
+    res.json({
+      url: `https://id.twitch.tv/oauth2/authorize?${params.toString()}`
+    });
   });
 
   app.get(['/auth/twitch/callback', '/auth/twitch/callback/'], async (req, res) => {
-    const { code, state } = req.query;
-    // Use state to get the exact redirect_uri used, fallback to reconstruct
-    const redirectUri = (state as string) || getRedirectUri(req);
-    
+    const { code, error, error_description } = req.query;
+    const redirectUri = getRedirectUri(req);
+
     try {
       if (!process.env.TWITCH_CLIENT_ID || !process.env.TWITCH_CLIENT_SECRET) {
         console.error('Missing Twitch credentials in environment variables');
         return res.status(500).send('Configuration Twitch manquante (Client ID ou Secret).');
       }
 
-      const tokenResponse = await fetch('https://id.twitch.tv/oauth2/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          client_id: process.env.TWITCH_CLIENT_ID || '',
-          client_secret: process.env.TWITCH_CLIENT_SECRET || '',
-          code: code as string,
-          grant_type: 'authorization_code',
-          redirect_uri: redirectUri
-        })
-      });
-      
-      const tokenData = await tokenResponse.json();
-      
-      if (tokenData.access_token) {
-        const userResponse = await fetch('https://api.twitch.tv/helix/users', {
-          headers: {
-            'Authorization': `Bearer ${tokenData.access_token}`,
-            'Client-Id': process.env.TWITCH_CLIENT_ID || ''
-          }
-        });
-        const userData = await userResponse.json();
-        const user = userData.data[0];
-        
-        res.send(`
+      if (error) {
+        return res.send(`
           <html>
             <body>
               <script>
                 if (window.opener) {
-                  window.opener.postMessage({ type: 'TWITCH_AUTH_SUCCESS', user: ${JSON.stringify(user)} }, '*');
+                  window.opener.postMessage(
+                    {
+                      type: 'TWITCH_AUTH_ERROR',
+                      error: ${JSON.stringify(String(error))},
+                      description: ${JSON.stringify(String(error_description || 'Connexion refusée'))}
+                    },
+                    ${JSON.stringify(redirectUri.replace('/auth/twitch/callback', ''))}
+                  );
                   window.close();
                 } else {
                   window.location.href = '/';
                 }
               </script>
-              <p>Authentification réussie. Cette fenêtre va se fermer automatiquement.</p>
+              <p>Connexion Twitch refusée.</p>
             </body>
           </html>
         `);
-      } else {
-        console.error('Twitch token error:', tokenData);
-        res.send(`Erreur lors de l'authentification Twitch: ${tokenData.message || 'Erreur inconnue'}`);
       }
+
+      if (!code) {
+        return res.status(400).send('Code OAuth Twitch manquant.');
+      }
+
+      const tokenResponse = await fetch('https://id.twitch.tv/oauth2/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({
+          client_id: process.env.TWITCH_CLIENT_ID,
+          client_secret: process.env.TWITCH_CLIENT_SECRET,
+          code: String(code),
+          grant_type: 'authorization_code',
+          redirect_uri: redirectUri
+        })
+      });
+
+      const tokenData = await tokenResponse.json();
+
+      if (!tokenResponse.ok || !tokenData.access_token) {
+        console.error('Twitch token error:', tokenData);
+
+        return res.send(`
+          <html>
+            <body>
+              <script>
+                if (window.opener) {
+                  window.opener.postMessage(
+                    {
+                      type: 'TWITCH_AUTH_ERROR',
+                      error: 'token_exchange_failed',
+                      description: ${JSON.stringify(tokenData?.message || 'Erreur token Twitch')}
+                    },
+                    ${JSON.stringify(redirectUri.replace('/auth/twitch/callback', ''))}
+                  );
+                  window.close();
+                } else {
+                  window.location.href = '/';
+                }
+              </script>
+              <p>Erreur lors de l'authentification Twitch.</p>
+            </body>
+          </html>
+        `);
+      }
+
+      const userResponse = await fetch('https://api.twitch.tv/helix/users', {
+        headers: {
+          Authorization: `Bearer ${tokenData.access_token}`,
+          'Client-Id': process.env.TWITCH_CLIENT_ID
+        }
+      });
+
+      const userData = await userResponse.json();
+      const user = userData?.data?.[0];
+
+      if (!user) {
+        return res.send(`
+          <html>
+            <body>
+              <script>
+                if (window.opener) {
+                  window.opener.postMessage(
+                    {
+                      type: 'TWITCH_AUTH_ERROR',
+                      error: 'user_fetch_failed',
+                      description: 'Impossible de récupérer le profil Twitch'
+                    },
+                    ${JSON.stringify(redirectUri.replace('/auth/twitch/callback', ''))}
+                  );
+                  window.close();
+                } else {
+                  window.location.href = '/';
+                }
+              </script>
+              <p>Impossible de récupérer le profil Twitch.</p>
+            </body>
+          </html>
+        `);
+      }
+
+      return res.send(`
+        <html>
+          <body>
+            <script>
+              if (window.opener) {
+                window.opener.postMessage(
+                  {
+                    type: 'TWITCH_AUTH_SUCCESS',
+                    user: ${JSON.stringify(user)}
+                  },
+                  ${JSON.stringify(redirectUri.replace('/auth/twitch/callback', ''))}
+                );
+                window.close();
+              } else {
+                window.location.href = '/';
+              }
+            </script>
+            <p>Authentification réussie. Cette fenêtre va se fermer automatiquement.</p>
+          </body>
+        </html>
+      `);
     } catch (error) {
       console.error('Twitch auth error:', error);
-      res.send('Erreur serveur.');
+
+      return res.send(`
+        <html>
+          <body>
+            <script>
+              if (window.opener) {
+                window.opener.postMessage(
+                  {
+                    type: 'TWITCH_AUTH_ERROR',
+                    error: 'server_error',
+                    description: 'Erreur serveur'
+                  },
+                  ${JSON.stringify(redirectUri.replace('/auth/twitch/callback', ''))}
+                );
+                window.close();
+              } else {
+                window.location.href = '/';
+              }
+            </script>
+            <p>Erreur serveur.</p>
+          </body>
+        </html>
+      `);
     }
   });
 
