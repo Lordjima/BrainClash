@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Users, Trophy, Award, ChevronRight, User, Star, ShoppingBag } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { socket } from '../lib/socket';
+import { socket, ensureSocketConnected } from '../lib/socket';
 import { useData } from '../DataContext';
 import { Badge as BadgeType } from '../types';
 import * as LucideIcons from 'lucide-react';
@@ -25,6 +25,8 @@ export default function Home() {
     const timer = setTimeout(() => {
       setIsLoading(false);
     }, 2000);
+
+    ensureSocketConnected();
 
     const storedUser = localStorage.getItem('twitch_user');
     if (storedUser) {

@@ -2,6 +2,10 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import path from 'path';
+import dotenv from 'dotenv';
+
+// Load environment variables from .env file (for local development)
+dotenv.config();
 
 import type { Question, Player, RoomState, GlobalLeaderboardEntry, SubmittedQuestion, Theme } from './src/types';
 import { initDB, getLeaderboard, getPendingQuestions, addSubmittedQuestion, updateSubmittedQuestionStatus, getThemesWithQuestions, addTheme, addQuestion, getUserProfile, updateUserProfile, buyItem, useItem, toggleSubStatus, batchUpdateUserProfiles, getAllBadges, getShopItems, awardBadgeXp, getAuctionItems, openLootBox, listItemForAuction, addBrainCoins } from './src/lib/db';
@@ -739,20 +743,17 @@ async function startServer() {
     });
   }
 
+  await initDB();
+  globalLeaderboard = await getLeaderboard();
+  console.log('✅ Initial data loaded');
+
   const PORT = process.env.PORT || 3000;
-  httpServer.listen(Number(PORT), "0.0.0.0", async () => {
+  httpServer.listen(Number(PORT), "0.0.0.0", () => {
     console.log(`Server running on port ${PORT}`);
-    
-    // Initialize Database after server is listening
-    try {
-      await initDB();
-      // Load initial data
-      globalLeaderboard = await getLeaderboard();
-      console.log('✅ Initial data loaded');
-    } catch (err) {
-      console.error('❌ Error during post-startup initialization:', err);
-    }
   });
 }
 
-startServer();
+startServer().catch((err) => {
+  console.error('❌ Impossible de démarrer le serveur :', err);
+  process.exit(1);
+});

@@ -5,11 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "npm run build:client && npm run build:server && npm run clean && npm run postinstall && npm run seed && npm run start",
+    "build": "npm run build:client && npm run build:server",
     "build:client": "vite build",
     "build:server": "esbuild server.ts --bundle --platform=node --target=node20 --outfile=dist-server/index.cjs --format=cjs --external:better-sqlite3 --external:mysql2 --external:sqlite3 --external:vite --external:lightningcss",
     "preview": "vite preview",
-    "clean": "node -e \"const fs=require('fs');fs.rmSync('dist',{recursive:true,force:true});fs.rmSync('dist-server',{recursive:true,force:true});\"",
+    "clean": "node -e \"const fs=require('fs'); fs.rmSync('dist',{recursive:true,force:true}); fs.rmSync('dist-server',{recursive:true,force:true});\"",
     "lint": "tsc --noEmit",
     "postinstall": "npm run build",
     "start": "cross-env NODE_ENV=production node dist-server/index.cjs",

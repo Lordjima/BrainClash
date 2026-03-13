@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Home, LogOut, User, Coins, Shield, EyeOff, RefreshCcw, Star, Award, Zap, Heart, TrendingUp, ShoppingBag } from 'lucide-react';
 import Logo from './Logo';
-import { socket } from '../lib/socket';
+import { socket, ensureSocketConnected } from '../lib/socket';
 import { useData } from '../DataContext';
 import type { GlobalLeaderboardEntry, ShopItem, Badge } from '../types';
 import * as LucideIcons from 'lucide-react';
@@ -16,6 +16,8 @@ export default function Profile() {
   const [purchaseAmount, setPurchaseAmount] = useState(5);
 
   useEffect(() => {
+    ensureSocketConnected();
+
     const storedUser = localStorage.getItem('twitch_user');
     if (storedUser) {
       try {

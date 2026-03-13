@@ -1,6 +1,13 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { socket } from './lib/socket';
-import { GlobalLeaderboardEntry, Theme, ShopItem } from './types';
+import { socket, ensureSocketConnected } from './lib/socket';
+import { GlobalLeaderboardEntry, Theme, ShopItem, Badge } from './types';
+
+interface BootstrapPayload {
+  leaderboard: GlobalLeaderboardEntry[];
+  themes: Record<string, Theme>;
+  shopItems?: ShopItem[];
+  allBadges?: Badge[];
+}
 
 interface DataContextType {
   leaderboard: GlobalLeaderboardEntry[];
@@ -20,9 +27,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    const handleBootstrap = (data: { leaderboard: GlobalLeaderboardEntry[], themes: Record<string, Theme>, shopItems: ShopItem[] }) => {
-      setLeaderboard(data.leaderboard);
-      setThemes(data.themes);
+    ensureSocketConnected();
+
+    const handleBootstrap = (data: BootstrapPayload) => {
+      setLeaderboard(data.leaderboard || []);
+      setThemes(data.themes || {});
       if (data.shopItems) setShopItems(data.shopItems);
       setIsLoaded(true);
     };
@@ -31,26 +40,30 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setUserProfile(profile);
     };
 
+    const handleLeaderboardUpdate = (newLeaderboard: GlobalLeaderboardEntry[]) => {
+      setLeaderboard(newLeaderboard || []);
+    };
+
     socket.on('bootstrap_data', handleBootstrap);
     socket.on('profile_data', handleProfile);
+    socket.on('leaderboard_update', handleLeaderboardUpdate);
 
-    socket.on('leaderboard_update', (newLeaderboard: GlobalLeaderboardEntry[]) => {
-      setLeaderboard(newLeaderboard);
-    });
-
-    // Request data
     socket.emit('request_bootstrap_data');
 
     const storedUser = localStorage.getItem('twitch_user');
     if (storedUser) {
-      const user = JSON.parse(storedUser);
-      socket.emit('get_profile', user.display_name);
+      try {
+        const user = JSON.parse(storedUser);
+        if (user?.display_name) socket.emit('get_profile', user.display_name);
+      } catch {
+        localStorage.removeItem('twitch_user');
+      }
     }
 
     return () => {
       socket.off('bootstrap_data', handleBootstrap);
       socket.off('profile_data', handleProfile);
-      socket.off('leaderboard_update');
+      socket.off('leaderboard_update', handleLeaderboardUpdate);
     };
   }, []);
 

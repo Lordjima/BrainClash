@@ -1,24 +1,17 @@
 # Déploiement Hostinger
 
-## Scripts
-- Build client + serveur: `npm run build`
-- Démarrage production: `npm run start`
+1. Crée le fichier `.env` à partir de `.env.example`.
+2. Mets `USE_MYSQL=true` et les vrais identifiants MySQL Hostinger.
+3. Vérifie que `/api` et `/socket.io` pointent vers le process Node.
+4. Lance ensuite :
 
-## Points importants
-- Le serveur Node est maintenant buildé en **CommonJS** (`dist-server/index.cjs`) pour éviter l'erreur `Dynamic require of "path" is not supported`.
-- Le client Socket.IO utilise uniquement `websocket` avec **3 tentatives max** pour éviter les boucles de requêtes en 503.
-- Les requêtes bootstrap ont été réduites côté front.
-- La base de données a été normalisée pour MySQL/SQLite avec des identifiants cohérents (`categories.id`, `badges.id`, `shop_items.id` en texte).
+```bash
+npm install
+npm run seed
+npm run build
+npm run start
+```
 
-## Variables `.env`
-Copier `.env.example` vers `.env` puis compléter les accès MySQL Hostinger.
-
-## Reverse proxy Hostinger
-Vérifier que Hostinger proxifie bien:
-- `/api/*`
-- `/socket.io/*`
-vers le process Node.
-
-## Conseils
-- En production, utiliser MySQL Hostinger (`USE_MYSQL=true`).
-- Garder SQLite seulement en fallback local.
+5. Si aucune table n'apparaît dans phpMyAdmin, regarde les logs Node :
+   - le projet ne bascule plus en SQLite silencieusement
+   - si MySQL échoue, le process plante volontairement avec une erreur claire.
