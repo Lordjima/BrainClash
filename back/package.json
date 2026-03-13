@@ -1,0 +1,30 @@
+{
+  "name": "brainclash-backend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx server.ts",
+    "build": "esbuild server.ts --bundle --platform=node --target=node20 --outfile=dist-server/index.cjs --format=cjs --external:mysql2 --external:vite --external:lightningcss",
+    "start": "cross-env NODE_ENV=production node dist-server/index.cjs",
+    "seed": "tsx scripts/seed.ts"
+  },
+  "dependencies": {
+    "cross-env": "^10.1.0",
+    "dotenv": "^17.2.3",
+    "esbuild": "^0.27.4",
+    "express": "^4.21.2",
+    "mysql2": "^3.19.1",
+    "socket.io": "^4.8.3",
+    "tsx": "^4.21.0",
+    "uuid": "^13.0.0",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.14.0",
+    "@types/uuid": "^10.0.0",
+    "@types/cors": "^2.8.17",
+    "typescript": "~5.8.2"
+  }
+}
