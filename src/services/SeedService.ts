@@ -32,6 +32,17 @@ export const SeedService = {
           { id: 'p1', text: 'Quel est le nom du dragon dans Le Hobbit ?', options: ['Smaug', 'Alduin', 'Paarthurnax', 'Viserion'], correctOptionIndex: 0, timeLimit: 15 },
           { id: 'p2', text: 'Dans One Piece, quel est le fruit du démon de Luffy ?', options: ['Gomu Gomu no Mi', 'Mera Mera no Mi', 'Hito Hito no Mi', 'Ope Ope no Mi'], correctOptionIndex: 0, timeLimit: 15 }
         ]
+      },
+      {
+        id: 'disney',
+        name: 'Disney',
+        questions: Array.from({ length: 50 }, (_, i) => ({
+          id: `d${i + 1}`,
+          text: `Question Disney ${i + 1}`,
+          options: ['Réponse A', 'Réponse B', 'Réponse C', 'Réponse D'],
+          correctOptionIndex: 0,
+          timeLimit: 15
+        }))
       }
     ];
 

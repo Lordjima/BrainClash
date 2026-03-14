@@ -27,6 +27,39 @@ export default function HostDashboard() {
     return () => unsubscribe();
   }, [id]);
 
+  const handleReveal = React.useCallback(async () => {
+    if (!id) return;
+    const roomRef = doc(db, 'rooms', id);
+    await updateDoc(roomRef, { showAnswer: true });
+  }, [id]);
+
+  // Auto-next question after 5 seconds
+  useEffect(() => {
+    if (!room || !room.showAnswer || !id) return;
+
+    const timer = setTimeout(() => {
+      handleNext();
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [room, id]);
+
+  useEffect(() => {
+    if (!room || room.status !== 'active' || room.showAnswer) return;
+
+    const currentQ = room.questions[room.currentQuestionIndex];
+    if (!currentQ) return;
+    
+    const timeLimitMs = currentQ.timeLimit * 1000;
+    const elapsed = Date.now() - room.questionStartTime;
+    const players: Player[] = Object.values(room.players);
+    const allAnswered = players.length > 0 && players.every(p => p.hasAnswered);
+
+    if (elapsed >= timeLimitMs || allAnswered) {
+      handleReveal();
+    }
+  }, [room, handleReveal]);
+
   if (!room) {
     return <div className="h-full bg-transparent text-white flex items-center justify-center">Chargement...</div>;
   }
@@ -40,12 +73,6 @@ export default function HostDashboard() {
         questionStartTime: Date.now()
     });
     setIsLoading(false);
-  };
-
-  const handleReveal = async () => {
-    if (!id) return;
-    const roomRef = doc(db, 'rooms', id);
-    await updateDoc(roomRef, { showAnswer: true });
   };
 
   const handleNext = async () => {

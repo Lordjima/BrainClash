@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { collection, onSnapshot, doc, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, doc, query, where, getDocs } from 'firebase/firestore';
 import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from './lib/firebase';
 import { GlobalLeaderboardEntry, Theme, ShopItem, Badge, Chest } from './types';
@@ -67,17 +67,20 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           setIsLoaded(true);
         }
       } else {
-        // Subscribe to profile using UID
+        // Subscribe to profile
         if (unsubProfile) unsubProfile();
-        unsubProfile = onSnapshot(doc(db, 'profiles', user.uid), (doc) => {
-          if (doc.exists()) {
-            setUserProfile(doc.data() as GlobalLeaderboardEntry);
-          } else {
-            // Check if we have Twitch info to show a local state until first save
-            const storedUser = localStorage.getItem('twitch_user');
-            if (storedUser) {
-              try {
-                const twitchUser = JSON.parse(storedUser);
+        
+        const storedTwitchUser = localStorage.getItem('twitch_user');
+        if (storedTwitchUser) {
+          try {
+            const twitchUser = JSON.parse(storedTwitchUser);
+            // Query profile by username
+            const q = query(collection(db, 'profiles'), where('username', '==', twitchUser.display_name));
+            unsubProfile = onSnapshot(q, (snapshot) => {
+              if (!snapshot.empty) {
+                setUserProfile(snapshot.docs[0].data() as GlobalLeaderboardEntry);
+              } else {
+                // Fallback if not found in Firestore
                 setUserProfile({
                   username: twitchUser.display_name,
                   score: 0,
@@ -91,21 +94,39 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                   level: 1,
                   xp: 0
                 } as any);
-              } catch (e) {}
+              }
+              if (!isInitialAuthCheckDone) {
+                isInitialAuthCheckDone = true;
+                setIsLoaded(true);
+              }
+            });
+          } catch (e) {
+            console.error('Error parsing twitch_user:', e);
+            isInitialAuthCheckDone = true;
+            setIsLoaded(true);
+          }
+        } else {
+          // Fallback to UID if no Twitch user
+          unsubProfile = onSnapshot(doc(db, 'profiles', user.uid), (doc) => {
+            console.log('DataContext: onSnapshot triggered for UID', user.uid, doc.data());
+            if (doc.exists()) {
+              setUserProfile(doc.data() as GlobalLeaderboardEntry);
+            } else {
+              setUserProfile(null);
             }
-          }
-          
-          if (!isInitialAuthCheckDone) {
-            isInitialAuthCheckDone = true;
-            setIsLoaded(true);
-          }
-        }, (err) => {
-          console.error('Profile snapshot error:', err);
-          if (!isInitialAuthCheckDone) {
-            isInitialAuthCheckDone = true;
-            setIsLoaded(true);
-          }
-        });
+            
+            if (!isInitialAuthCheckDone) {
+              isInitialAuthCheckDone = true;
+              setIsLoaded(true);
+            }
+          }, (err) => {
+            console.error('Profile snapshot error:', err);
+            if (!isInitialAuthCheckDone) {
+              isInitialAuthCheckDone = true;
+              setIsLoaded(true);
+            }
+          });
+        }
       }
     });
 
@@ -172,6 +193,41 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       console.error('Chests error:', err);
     });
 
+    const handleTwitchUserUpdated = () => {
+      const storedUser = localStorage.getItem('twitch_user');
+      if (storedUser) {
+        try {
+          const twitchUser = JSON.parse(storedUser);
+          // Query profile by username
+          const q = query(collection(db, 'profiles'), where('username', '==', twitchUser.display_name));
+          getDocs(q).then((snapshot) => {
+            if (!snapshot.empty) {
+              setUserProfile(snapshot.docs[0].data() as GlobalLeaderboardEntry);
+            } else {
+              setUserProfile({
+                username: twitchUser.display_name,
+                score: 0,
+                games_played: 0,
+                date: Date.now(),
+                coins: 0,
+                brainCoins: 0,
+                is_sub: false,
+                badges: [],
+                inventory: [],
+                level: 1,
+                xp: 0
+              } as any);
+            }
+          });
+        } catch (e) {
+          console.error('Error parsing twitch_user:', e);
+        }
+      } else {
+        setUserProfile(null);
+      }
+    };
+    window.addEventListener('twitch_user_updated', handleTwitchUserUpdated);
+
     return () => {
       unsubAuth();
       unsubLeaderboard();
@@ -180,6 +236,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       unsubBadges();
       unsubChests();
       if (unsubProfile) unsubProfile();
+      window.removeEventListener('twitch_user_updated', handleTwitchUserUpdated);
     };
   }, []);
 

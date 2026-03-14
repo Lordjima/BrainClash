@@ -1,59 +1,39 @@
-import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 
 export default function AuthCallback() {
-  const navigate = useNavigate();
-
   useEffect(() => {
-    const hash = window.location.hash;
-    const params = new URLSearchParams(hash.substring(1));
+    const hash = window.location.hash.substring(1);
+    const params = new URLSearchParams(hash);
     const accessToken = params.get('access_token');
 
     if (accessToken) {
-      fetchUserInfo(accessToken);
-    } else {
-      console.error('No access token found in URL hash');
-      navigate('/');
-    }
-  }, [navigate]);
-
-  const fetchUserInfo = async (token: string) => {
-    try {
-      const response = await fetch('https://api.twitch.tv/helix/users', {
+      // Fetch user info
+      fetch('https://api.twitch.tv/helix/users', {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Client-Id': '47anvp07hr6dfxl1ucsscnjavs5j2e' // Hardcoded for now or use env
+          'Authorization': `Bearer ${accessToken}`,
+          'Client-Id': '47anvp07hr6dfxl1ucsscnjavs5j2e'
         }
-      });
-
-      if (!response.ok) throw new Error('Failed to fetch user info');
-      
-      const data = await response.json();
-      const user = data.data[0];
-
-      if (user) {
-        // Send message to opener if it exists (for popup flow)
+      })
+      .then(res => res.json())
+      .then(data => {
+        const user = data.data[0];
         if (window.opener) {
-          window.opener.postMessage({ type: 'TWITCH_AUTH_SUCCESS', user }, window.location.origin);
+          window.opener.postMessage({ type: 'TWITCH_AUTH_SUCCESS', user }, '*');
           window.close();
-        } else {
-          // Fallback for redirect flow
-          localStorage.setItem('twitch_user', JSON.stringify(user));
-          navigate('/');
         }
-      }
-    } catch (err) {
-      console.error('Error fetching Twitch user info:', err);
-      navigate('/');
+      })
+      .catch(err => {
+        console.error('Error fetching Twitch user:', err);
+        window.close();
+      });
+    } else {
+      window.close();
     }
-  };
+  }, []);
 
   return (
-    <div className="h-full bg-zinc-950 text-white flex items-center justify-center">
-      <div className="text-center">
-        <div className="w-12 h-12 border-4 border-fuchsia-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-        <p className="text-zinc-400">Connexion à Twitch en cours...</p>
-      </div>
+    <div className="h-screen flex items-center justify-center bg-zinc-950 text-white">
+      <p className="font-black uppercase tracking-widest">Connexion en cours...</p>
     </div>
   );
 }

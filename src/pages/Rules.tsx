@@ -1,71 +1,46 @@
 import React from 'react';
-import { Info, Zap, TrendingUp, Coins, Package } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import { PageLayout } from '../components/ui/PageLayout';
 import { PageHeader } from '../components/ui/PageHeader';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
+import { Info } from 'lucide-react';
 
 export default function Rules() {
   return (
-    <PageLayout maxWidth="max-w-7xl">
+    <PageLayout maxWidth="max-w-4xl">
       <PageHeader
-        title="RÈGLES DU JEU"
-        subtitle="Tout ce que tu dois savoir pour dominer l'arène."
-        icon={<Info className="w-8 h-8 text-purple-500" />}
+        title="Règles du Jeu"
+        subtitle="Comment jouer à BrainClash"
+        icon={<Info className="w-8 h-8 text-blue-500" />}
       />
 
-      <Card className="p-8">
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex items-center gap-4 bg-zinc-950/50 p-4 rounded-2xl border border-zinc-800">
-              <div className="w-12 h-12 bg-yellow-500/10 rounded-2xl flex items-center justify-center shrink-0">
-                <Zap className="w-6 h-6 text-yellow-500" />
-              </div>
-              <div>
-                <h3 className="text-sm font-black text-white uppercase tracking-wider">Points</h3>
-                <p className="text-zinc-400 text-[10px]">Rapide + Juste = 1000 pts max</p>
-              </div>
-            </div>
+      <div className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-8 space-y-8">
+        <section>
+          <h3 className="text-xl font-bold text-white mb-4">1. Le But du Jeu</h3>
+          <p className="text-zinc-400">
+            BrainClash est un quiz compétitif en temps réel. Répondez aux questions le plus rapidement possible pour accumuler des points et grimper dans le classement.
+          </p>
+        </section>
 
-            <div className="flex items-center gap-4 bg-zinc-950/50 p-4 rounded-2xl border border-zinc-800">
-              <div className="w-12 h-12 bg-green-500/10 rounded-2xl flex items-center justify-center shrink-0">
-                <TrendingUp className="w-6 h-6 text-green-500" />
-              </div>
-              <div>
-                <h3 className="text-sm font-black text-white uppercase tracking-wider">XP</h3>
-                <p className="text-zinc-400 text-[10px]">Parties = Niveau + Badges</p>
-              </div>
-            </div>
+        <section>
+          <h3 className="text-xl font-bold text-white mb-4">2. Système de Score</h3>
+          <p className="text-zinc-400">
+            Chaque bonne réponse vous rapporte des points de base. Plus vous répondez vite, plus vous gagnez de points bonus de rapidité !
+          </p>
+        </section>
 
-            <div className="flex items-center gap-4 bg-zinc-950/50 p-4 rounded-2xl border border-zinc-800">
-              <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center shrink-0">
-                <Coins className="w-6 h-6 text-amber-500" />
-              </div>
-              <div>
-                <h3 className="text-sm font-black text-white uppercase tracking-wider">Monnaie</h3>
-                <p className="text-zinc-400 text-[10px]">Coins (Jeu) + BrainCoins (Rare)</p>
-              </div>
-            </div>
+        <section>
+          <h3 className="text-xl font-bold text-white mb-4">3. Objets et Sorts</h3>
+          <p className="text-zinc-400">
+            Utilisez les objets de votre inventaire pour perturber vos adversaires ou vous protéger. Vous pouvez en acheter dans la boutique avec vos pièces gagnées en jeu.
+          </p>
+        </section>
 
-            <div className="flex items-center gap-4 bg-zinc-950/50 p-4 rounded-2xl border border-zinc-800">
-              <div className="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center shrink-0">
-                <Package className="w-6 h-6 text-blue-500" />
-              </div>
-              <div>
-                <h3 className="text-sm font-black text-white uppercase tracking-wider">Coffres</h3>
-                <p className="text-zinc-400 text-[10px]">Objets aléatoires à revendre</p>
-              </div>
-            </div>
-          </div>
-
-          <Link to="/">
-            <Button className="w-full mt-8 py-4 text-lg" variant="primary" size="lg">
-              J'AI COMPRIS !
-            </Button>
-          </Link>
-        </div>
-      </Card>
+        <section>
+          <h3 className="text-xl font-bold text-white mb-4">4. Respect</h3>
+          <p className="text-zinc-400">
+            Restez fair-play. Tout comportement toxique pourra entraîner une exclusion temporaire ou définitive.
+          </p>
+        </section>
+      </div>
     </PageLayout>
   );
 }

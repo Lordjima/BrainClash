@@ -7,10 +7,6 @@ import {
   Store, 
   Trophy, 
   ChevronRight,
-  Coins,
-  Zap,
-  Star,
-  TrendingUp,
   X,
   LayoutGrid,
   User,
@@ -71,13 +67,6 @@ export default function MenuModal({ isOpen, onClose }: MenuModalProps) {
     }
   ];
 
-  const rankings = [
-    { title: "Points", icon: TrendingUp, color: "text-blue-500" },
-    { title: "Coins", icon: Coins, color: "text-amber-500" },
-    { title: "BrainCoins", icon: Zap, color: "text-fuchsia-500" },
-    { title: "Niveau", icon: Star, color: "text-yellow-500" }
-  ];
-
   return (
     <AnimatePresence>
       {isOpen && (
@@ -133,36 +122,6 @@ export default function MenuModal({ isOpen, onClose }: MenuModalProps) {
                   </Link>
                 </motion.div>
               ))}
-            </div>
-
-            <div className="space-y-8">
-              <div className="flex items-center gap-6">
-                <div className="w-12 h-12 bg-yellow-500/10 rounded-2xl flex items-center justify-center border border-yellow-500/20">
-                  <Trophy className="w-6 h-6 text-yellow-500" />
-                </div>
-                <h2 className="text-2xl font-black uppercase italic text-white">Classements</h2>
-                <div className="flex-1 h-px bg-zinc-800/50" />
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {rankings.map((rank, i) => (
-                  <motion.div
-                    key={rank.title}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.3 + i * 0.1 }}
-                  >
-                    <Link 
-                      to="/leaderboard"
-                      onClick={onClose}
-                      className="group block p-8 rounded-[32px] bg-zinc-900/40 backdrop-blur-md border border-zinc-800 hover:border-fuchsia-500/30 transition-all text-center shadow-lg"
-                    >
-                      <rank.icon className={`w-10 h-10 ${rank.color} mx-auto mb-4 group-hover:scale-110 transition-transform`} />
-                      <div className="text-[10px] font-black uppercase tracking-widest text-zinc-400 group-hover:text-white transition-colors">{rank.title}</div>
-                    </Link>
-                  </motion.div>
-                ))}
-              </div>
             </div>
           </motion.div>
         </motion.div>

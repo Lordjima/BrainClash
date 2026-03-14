@@ -26,8 +26,13 @@ export default function Boutique() {
       setBuying(itemId);
       setError(null);
       setSuccess(null);
-      // Assuming QuizService handles both
-      await QuizService.buyItem(itemId, price);
+      
+      if (type === 'chest') {
+        await QuizService.buyChest(itemId);
+      } else {
+        await QuizService.buyItem(itemId, price);
+      }
+      
       setSuccess(`Vous avez acheté ${itemId} !`);
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: any) {
@@ -47,14 +52,18 @@ export default function Boutique() {
         title="Boutique"
         subtitle="Équipez-vous pour la victoire"
         actions={
-          <>
-            <Badge variant="amber" icon={<Coins />}>
-              {userProfile?.coins || 0}
-            </Badge>
-            <Badge variant="fuchsia" icon={<Sparkles />}>
-              {userProfile?.brainCoins || 0}
-            </Badge>
-          </>
+          userProfile ? (
+            <>
+              <Badge variant="amber" icon={<Coins />}>
+                {userProfile?.coins || 0}
+              </Badge>
+              <Badge variant="fuchsia" icon={<Sparkles />}>
+                {userProfile?.brainCoins || 0}
+              </Badge>
+            </>
+          ) : (
+            <div className="text-zinc-500 font-bold uppercase tracking-widest text-sm">Connectez-vous pour voir vos points</div>
+          )
         }
       />
       

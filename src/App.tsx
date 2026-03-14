@@ -11,8 +11,6 @@ import PlayerScreen from './pages/PlayerScreen';
 import Overlay from './pages/Overlay';
 import Profile from './pages/Profile';
 import Inventory from './pages/Inventory';
-import MenuPage from './pages/Menu';
-import Rules from './pages/Rules';
 import Leaderboard from './pages/Leaderboard';
 import CreateQuiz from './pages/CreateQuiz';
 import SubmitQuestion from './pages/SubmitQuestion';
@@ -20,6 +18,7 @@ import ReviewQuestions from './pages/ReviewQuestions';
 import Auction from './pages/Auction';
 import Boutique from './pages/Boutique';
 import AdminDashboard from './pages/AdminDashboard';
+import Rules from './pages/Rules';
 import AuthCallback from './pages/AuthCallback';
 import Navbar from './components/ui/Navbar';
 import { BottomBar } from './components/ui/BottomBar';
@@ -94,12 +93,11 @@ export default function App() {
                       <Route path="/room/:id" element={<PlayerScreen />} />
                       <Route path="/profile" element={<Profile />} />
                       <Route path="/inventory" element={<Inventory />} />
-                      <Route path="/menu" element={<MenuPage />} />
-                      <Route path="/rules" element={<Rules />} />
                       <Route path="/leaderboard" element={<Leaderboard />} />
                       <Route path="/auction" element={<Auction />} />
                       <Route path="/boutique" element={<Boutique />} />
                       <Route path="/admin" element={<AdminDashboard />} />
+                      <Route path="/rules" element={<Rules />} />
                       <Route path="/auth/twitch/callback" element={<AuthCallback />} />
                     </Routes>
                   </main>

@@ -71,6 +71,7 @@ export type GlobalLeaderboardEntry = {
   inventory: string[];
   level: number;
   xp: number;
+  processedGames?: string[];
 };
 
 export type AuctionItem = {

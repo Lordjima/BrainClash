@@ -17,6 +17,57 @@ import {
 import { db, auth } from '../lib/firebase';
 import { RoomState, Question, GlobalLeaderboardEntry, ShopItem, Chest } from '../types';
 
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId: string | undefined;
+    email: string | null | undefined;
+    emailVerified: boolean | undefined;
+    isAnonymous: boolean | undefined;
+    tenantId: string | null | undefined;
+    providerInfo: {
+      providerId: string;
+      displayName: string | null;
+      email: string | null;
+      photoUrl: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData.map(provider => ({
+        providerId: provider.providerId,
+        displayName: provider.displayName,
+        email: provider.email,
+        photoUrl: provider.photoURL
+      })) || []
+    },
+    operationType,
+    path
+  }
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
 export class QuizService {
   private static ROOMS_COLLECTION = 'rooms';
   private static PROFILES_COLLECTION = 'profiles';
@@ -50,7 +101,11 @@ export class QuizService {
       showAnswer: false
     };
 
-    await setDoc(roomRef, roomState);
+    try {
+      await setDoc(roomRef, roomState);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, this.ROOMS_COLLECTION + '/' + code);
+    }
     return code;
   }
 
@@ -81,7 +136,11 @@ export class QuizService {
       showAnswer: false
     };
 
-    await setDoc(roomRef, roomState);
+    try {
+      await setDoc(roomRef, roomState);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, this.ROOMS_COLLECTION + '/' + code);
+    }
   }
 
   /**
@@ -92,9 +151,14 @@ export class QuizService {
     if (!user) throw new Error('Authentication required');
 
     const roomRef = doc(db, this.ROOMS_COLLECTION, roomCode);
-    const roomSnap = await getDoc(roomRef);
+    let roomSnap;
+    try {
+      roomSnap = await getDoc(roomRef);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, this.ROOMS_COLLECTION + '/' + roomCode);
+    }
 
-    if (!roomSnap.exists()) throw new Error('Room not found');
+    if (!roomSnap?.exists()) throw new Error('Room not found');
 
     const playerData = {
       id: user.uid,
@@ -106,9 +170,13 @@ export class QuizService {
       level: 1
     };
 
-    await updateDoc(roomRef, {
-      [`players.${user.uid}`]: playerData
-    });
+    try {
+      await updateDoc(roomRef, {
+        [`players.${user.uid}`]: playerData
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, this.ROOMS_COLLECTION + '/' + roomCode);
+    }
   }
 
   /**
@@ -119,8 +187,13 @@ export class QuizService {
     if (!user) return;
 
     const roomRef = doc(db, this.ROOMS_COLLECTION, roomCode);
-    const roomSnap = await getDoc(roomRef);
-    if (!roomSnap.exists()) return;
+    let roomSnap;
+    try {
+      roomSnap = await getDoc(roomRef);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, this.ROOMS_COLLECTION + '/' + roomCode);
+    }
+    if (!roomSnap?.exists()) return;
 
     const room = roomSnap.data() as RoomState;
     if (room.status !== 'active' || room.showAnswer) return;
@@ -136,11 +209,15 @@ export class QuizService {
       points = 100 + speedBonus;
     }
 
-    await updateDoc(roomRef, {
-      [`players.${user.uid}.hasAnswered`]: true,
-      [`players.${user.uid}.isCorrect`]: isCorrect,
-      [`players.${user.uid}.score`]: increment(points)
-    });
+    try {
+      await updateDoc(roomRef, {
+        [`players.${user.uid}.hasAnswered`]: true,
+        [`players.${user.uid}.isCorrect`]: isCorrect,
+        [`players.${user.uid}.score`]: increment(points)
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, this.ROOMS_COLLECTION + '/' + roomCode);
+    }
   }
 
   /**
@@ -148,22 +225,31 @@ export class QuizService {
    */
   static async resetRoom(roomCode: string): Promise<void> {
     const roomRef = doc(db, this.ROOMS_COLLECTION, roomCode);
-    const roomSnap = await getDoc(roomRef);
-    if (!roomSnap.exists()) return;
+    let roomSnap;
+    try {
+      roomSnap = await getDoc(roomRef);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, this.ROOMS_COLLECTION + '/' + roomCode);
+    }
+    if (!roomSnap?.exists()) return;
     const room = roomSnap.data() as RoomState;
 
-    await updateDoc(roomRef, {
-      status: 'lobby',
-      currentQuestionIndex: 0,
-      questionStartTime: null,
-      showAnswer: false,
-      ...Object.keys(room.players).reduce((acc, uid) => ({
-        ...acc,
-        [`players.${uid}.hasAnswered`]: false,
-        [`players.${uid}.isCorrect`]: false,
-        [`players.${uid}.score`]: 0
-      }), {})
-    });
+    try {
+      await updateDoc(roomRef, {
+        status: 'lobby',
+        currentQuestionIndex: 0,
+        questionStartTime: null,
+        showAnswer: false,
+        ...Object.keys(room.players).reduce((acc, uid) => ({
+          ...acc,
+          [`players.${uid}.hasAnswered`]: false,
+          [`players.${uid}.isCorrect`]: false,
+          [`players.${uid}.score`]: 0
+        }), {})
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, this.ROOMS_COLLECTION + '/' + roomCode);
+    }
   }
 
   /**
@@ -171,29 +257,70 @@ export class QuizService {
    */
   static async finishGame(roomCode: string): Promise<void> {
     const roomRef = doc(db, this.ROOMS_COLLECTION, roomCode);
-    const roomSnap = await getDoc(roomRef);
-    if (!roomSnap.exists()) return;
+    let roomSnap;
+    try {
+      roomSnap = await getDoc(roomRef);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, this.ROOMS_COLLECTION + '/' + roomCode);
+    }
+    if (!roomSnap?.exists()) return;
 
     const room = roomSnap.data() as RoomState;
     if (room.status === 'finished') return; // Already finished
 
     // Update room status
-    await updateDoc(roomRef, { status: 'finished' });
+    try {
+      await updateDoc(roomRef, { status: 'finished' });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, this.ROOMS_COLLECTION + '/' + roomCode);
+    }
+  }
 
-    // Update global profiles for all players
-    for (const [uid, player] of Object.entries(room.players)) {
-      const profileRef = doc(db, this.PROFILES_COLLECTION, uid);
-      const profileSnap = await getDoc(profileRef);
+  static async updatePlayerProfile(roomCode: string): Promise<void> {
+    const user = auth.currentUser;
+    if (!user) throw new Error('Authentication required');
 
-      if (profileSnap.exists()) {
+    const roomRef = doc(db, this.ROOMS_COLLECTION, roomCode);
+    let roomSnap;
+    try {
+      roomSnap = await getDoc(roomRef);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, this.ROOMS_COLLECTION + '/' + roomCode);
+    }
+    if (!roomSnap?.exists()) return;
+    const room = roomSnap.data() as RoomState;
+    if (room.status !== 'finished') return;
+
+    const player = room.players[user.uid];
+    if (!player) return;
+
+    // Update global profile for the player
+    const profileRef = doc(db, this.PROFILES_COLLECTION, user.uid);
+    let profileSnap;
+    try {
+      profileSnap = await getDoc(profileRef);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, this.PROFILES_COLLECTION + '/' + user.uid);
+    }
+
+    if (profileSnap?.exists()) {
+      const profile = profileSnap.data() as GlobalLeaderboardEntry;
+      if (profile.processedGames?.includes(roomCode)) return; // Already processed
+
+      try {
         await updateDoc(profileRef, {
           score: increment(player.score),
           games_played: increment(1),
           coins: increment(Math.floor(player.score / 10)), // Example: 1 coin per 10 points
-          brainCoins: increment(Math.floor(player.score / 100)) // Example: 1 brainCoin per 100 points
+          brainCoins: increment(Math.floor(player.score / 100)), // Example: 1 brainCoin per 100 points
+          processedGames: arrayUnion(roomCode)
         });
-      } else {
-        // Create profile if it doesn't exist
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, this.PROFILES_COLLECTION + '/' + user.uid);
+      }
+    } else {
+      // Create profile if it doesn't exist
+      try {
         await setDoc(profileRef, {
           username: player.username,
           score: player.score,
@@ -205,35 +332,49 @@ export class QuizService {
           badges: [],
           inventory: [],
           level: 1,
-          xp: player.score
+          xp: player.score,
+          processedGames: [roomCode]
         });
+      } catch (error) {
+        handleFirestoreError(error, OperationType.WRITE, this.PROFILES_COLLECTION + '/' + user.uid);
       }
     }
   }
+
   static async nextQuestion(roomCode: string): Promise<void> {
     const roomRef = doc(db, this.ROOMS_COLLECTION, roomCode);
-    const roomSnap = await getDoc(roomRef);
-    if (!roomSnap.exists()) return;
+    let roomSnap;
+    try {
+      roomSnap = await getDoc(roomRef);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, this.ROOMS_COLLECTION + '/' + roomCode);
+    }
+    if (!roomSnap?.exists()) return;
 
     const room = roomSnap.data() as RoomState;
     const nextIndex = room.currentQuestionIndex + 1;
 
     if (nextIndex < room.questions.length) {
-      await updateDoc(roomRef, {
-        currentQuestionIndex: nextIndex,
-        questionStartTime: Date.now(),
-        showAnswer: false,
-        // Reset player answered status
-        ...Object.keys(room.players).reduce((acc, uid) => ({
-          ...acc,
-          [`players.${uid}.hasAnswered`]: false,
-          [`players.${uid}.isCorrect`]: false
-        }), {})
-      });
+      try {
+        await updateDoc(roomRef, {
+          currentQuestionIndex: nextIndex,
+          questionStartTime: Date.now(),
+          showAnswer: false,
+          // Reset player answered status
+          ...Object.keys(room.players).reduce((acc, uid) => ({
+            ...acc,
+            [`players.${uid}.hasAnswered`]: false,
+            [`players.${uid}.isCorrect`]: false
+          }), {})
+        });
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, this.ROOMS_COLLECTION + '/' + roomCode);
+      }
     } else {
       await this.finishGame(roomCode);
     }
   }
+
 
   /**
    * Inventory Management

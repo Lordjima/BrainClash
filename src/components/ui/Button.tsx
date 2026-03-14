@@ -14,8 +14,8 @@ export function Button({ variant = 'primary', size = 'md', className, children, 
   const baseClasses = "font-black uppercase tracking-widest transition-all active:scale-95 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none";
   
   const variants = {
-    primary: "bg-fuchsia-600 hover:bg-fuchsia-500 text-white shadow-lg shadow-fuchsia-600/20 disabled:bg-zinc-800 disabled:text-zinc-500 disabled:shadow-none",
-    secondary: "bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700",
+    primary: "bg-accent-600 hover:bg-accent-500 text-white shadow-md shadow-accent-600/10 disabled:bg-zinc-800 disabled:text-zinc-500 disabled:shadow-none",
+    secondary: "bg-zinc-900 hover:bg-zinc-800 text-zinc-300",
     danger: "bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20",
     ghost: "bg-transparent hover:bg-zinc-800 text-zinc-400 hover:text-white",
   };

@@ -15,14 +15,6 @@ export default function Inventory() {
   const [filter, setFilter] = useState<'all' | 'attack' | 'defense' | 'utility'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedItem, setSelectedItem] = useState<any>(null);
-  const [twitchUser, setTwitchUser] = useState<any>(null);
-
-  useEffect(() => {
-    const storedUser = localStorage.getItem('twitch_user');
-    if (storedUser) {
-      setTwitchUser(JSON.parse(storedUser));
-    }
-  }, []);
 
   const getIcon = (iconName: string, size = "w-6 h-6") => {
     const Icon = (LucideIcons as any)[iconName] || Package;
@@ -329,7 +321,7 @@ export default function Inventory() {
                   </button>
                   <button 
                     onClick={async () => {
-                      if (!twitchUser || !selectedItem) return;
+                      if (!selectedItem) return;
                       await QuizService.removeFromInventory(selectedItem.id.toString());
                       setSelectedItem(null);
                     }}

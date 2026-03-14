@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LogIn, User, Coins, ChevronDown, Shield, PlusCircle, Inbox, Package } from 'lucide-react';
+import { LogIn, User, ChevronDown, Shield, PlusCircle, Inbox, Package } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { signOut } from 'firebase/auth';
+import { auth } from '../../lib/firebase';
 
 import Logo from './Logo';
-import { useData } from '../../DataContext';
 
 export default function Navbar() {
   const navigate = useNavigate();
-  const { userProfile } = useData();
   const [twitchUser, setTwitchUser] = useState<any>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -33,6 +33,7 @@ export default function Navbar() {
       if (event.data?.type === 'TWITCH_AUTH_SUCCESS') {
         setTwitchUser(event.data.user);
         localStorage.setItem('twitch_user', JSON.stringify(event.data.user));
+        window.dispatchEvent(new Event('twitch_user_updated'));
       }
     };
 
@@ -64,20 +65,6 @@ export default function Navbar() {
         </Link>
 
         <div className="flex items-center gap-6">
-          {userProfile && (
-            <div className="hidden md:flex items-center gap-6 bg-zinc-900/40 backdrop-blur-xl px-6 py-2 rounded-full border border-white/5">
-              <div className="flex items-center gap-2">
-                <Coins className="w-4 h-4 text-amber-500" />
-                <span className="text-sm font-black font-mono text-amber-500">{userProfile.coins.toLocaleString()}</span>
-              </div>
-              <div className="w-px h-4 bg-white/10" />
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-fuchsia-500 rounded-full flex items-center justify-center text-[8px] font-black text-white">B</div>
-                <span className="text-sm font-black font-mono text-fuchsia-400">{userProfile.brainCoins.toLocaleString()}</span>
-              </div>
-            </div>
-          )}
-
           {twitchUser ? (
             <div className="relative" ref={menuRef}>
               <button 
@@ -129,10 +116,11 @@ export default function Navbar() {
                     
                     <div className="px-2">
                       <button 
-                        onClick={() => {
+                        onClick={async () => {
                           localStorage.removeItem('twitch_user');
                           setTwitchUser(null);
                           setIsMenuOpen(false);
+                          await signOut(auth);
                           navigate('/');
                         }}
                         className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-red-400 hover:bg-red-500/10 rounded-xl transition-all group"

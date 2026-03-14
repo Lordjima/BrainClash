@@ -198,10 +198,9 @@ export default function Home() {
             key="main"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="bc-content-wrapper flex flex-col items-center justify-center min-h-[80vh]"
+            className="bc-content-wrapper flex flex-col items-center justify-center flex-1"
           >
-            {/* Decorative Background Elements */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl aspect-square bg-fuchsia-600/1 blur-[150px] rounded-full pointer-events-none" />
+            {/* Decorative Background Elements removed to prevent scroll */}
             
             <div className="relative z-10 w-full max-w-xl flex flex-col items-center">
               {/* Welcome */}

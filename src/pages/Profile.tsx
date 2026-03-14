@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { LogOut, User, Coins, Shield, EyeOff, RefreshCcw, Star, Award, Zap, Heart, TrendingUp, ShoppingBag } from 'lucide-react';
-import { doc, onSnapshot, updateDoc, increment } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, increment, getDoc, setDoc } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
+import { signOut } from 'firebase/auth';
 import { useData } from '../DataContext';
 import type { GlobalLeaderboardEntry, ShopItem, Badge } from '../types';
 import * as LucideIcons from 'lucide-react';
@@ -14,6 +15,7 @@ export default function Profile() {
   const [user, setUser] = useState<any>(null);
   const [showPayPal, setShowPayPal] = useState(false);
   const [purchaseAmount, setPurchaseAmount] = useState(5);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const storedUser = localStorage.getItem('twitch_user');
@@ -28,17 +30,28 @@ export default function Profile() {
     }
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     localStorage.removeItem('twitch_user');
     setUser(null);
+    await signOut(auth);
+    navigate('/');
   };
 
   const handleToggleSub = async () => {
     if (userProfile && auth.currentUser) {
       const profileRef = doc(db, 'profiles', auth.currentUser.uid);
-      await updateDoc(profileRef, {
-        is_sub: !userProfile.is_sub
-      });
+      const profileSnap = await getDoc(profileRef);
+      if (profileSnap.exists()) {
+        await updateDoc(profileRef, {
+          is_sub: !userProfile.is_sub
+        });
+      } else {
+        // Create profile if it doesn't exist
+        await setDoc(profileRef, {
+          ...userProfile,
+          is_sub: !userProfile.is_sub
+        });
+      }
     }
   };
 
@@ -48,13 +61,33 @@ export default function Profile() {
   };
 
   const handlePurchaseSuccess = async () => {
+    console.log('handlePurchaseSuccess called', { userProfile, currentUser: auth.currentUser });
     if (userProfile && auth.currentUser) {
       const profileRef = doc(db, 'profiles', auth.currentUser.uid);
-      await updateDoc(profileRef, {
-        brainCoins: increment(purchaseAmount)
-      });
-      setShowPayPal(false);
-      alert(`Félicitations ! Vous avez reçu ${purchaseAmount} BrainCoins.`);
+      try {
+        const profileSnap = await getDoc(profileRef);
+        console.log('Profile snap exists:', profileSnap.exists());
+        if (profileSnap.exists()) {
+          await updateDoc(profileRef, {
+            brainCoins: increment(purchaseAmount)
+          });
+          console.log('updateDoc successful');
+        } else {
+          // Create profile if it doesn't exist
+          await setDoc(profileRef, {
+            ...userProfile,
+            brainCoins: increment(purchaseAmount)
+          });
+          console.log('setDoc successful');
+        }
+        setShowPayPal(false);
+        alert(`Félicitations ! Vous avez reçu ${purchaseAmount} BrainCoins.`);
+      } catch (error) {
+        console.error('Error updating/creating profile:', error);
+        alert('Une erreur est survenue lors de l\'achat.');
+      }
+    } else {
+      console.error('Missing userProfile or auth.currentUser', { userProfile, currentUser: auth.currentUser });
     }
   };
 
