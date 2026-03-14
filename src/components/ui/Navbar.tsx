@@ -48,7 +48,7 @@ export default function Navbar() {
 
   const handleTwitchLogin = () => {
     const clientId = '47anvp07hr6dfxl1ucsscnjavs5j2e';
-    const redirectUri = `${window.location.origin}/auth/twitch/callback`;
+    const redirectUri = `${window.location.origin}/callback`;
     const scope = 'user:read:email';
     const url = `https://id.twitch.tv/oauth2/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${encodeURIComponent(scope)}`;
     

@@ -115,6 +115,7 @@ export type SavedQuiz = {
   description: string;
   theme: string;
   timeLimit: number;
+  questionCount: number;
   createdAt: number;
 };
 
