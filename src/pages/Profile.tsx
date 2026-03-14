@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Home, LogOut, User, Coins, Shield, EyeOff, RefreshCcw, Star, Award, Zap, Heart, TrendingUp, ShoppingBag } from 'lucide-react';
-import Logo from '../components/Logo';
+import { LogOut, User, Coins, Shield, EyeOff, RefreshCcw, Star, Award, Zap, Heart, TrendingUp, ShoppingBag } from 'lucide-react';
 import { doc, onSnapshot, updateDoc, increment } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { useData } from '../DataContext';
 import type { GlobalLeaderboardEntry, ShopItem, Badge } from '../types';
 import * as LucideIcons from 'lucide-react';
+import { PageLayout } from '../components/ui/PageLayout';
+import { PageHeader } from '../components/ui/PageHeader';
 
 export default function Profile() {
   const { leaderboard, shopItems: allShopItems, userProfile, badges: allBadges } = useData();
@@ -59,45 +60,50 @@ export default function Profile() {
 
 
   return (
-    <div className="h-full px-6 pb-6 bg-transparent overflow-y-auto custom-scrollbar">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 py-4">
-        
-        {/* Left Column: Stats & Profile */}
-        <div className="lg:col-span-4">
-          <div className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-8 text-center relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-purple-600/10 blur-[60px] -mr-16 -mt-16" />
-            
-            {user ? (
-              <>
-                <div className="relative inline-block mb-4">
-                  <img 
-                    src={user.profile_image_url} 
-                    alt="" 
-                    className="w-24 h-24 rounded-full border-4 border-purple-500/50 p-1"
-                    referrerPolicy="no-referrer"
-                  />
-                  <div className="absolute -bottom-2 -right-2 bg-purple-600 text-white text-[10px] font-black px-2 py-1 rounded-lg border-2 border-zinc-900">
-                    LVL {userProfile?.level || 1}
+    <PageLayout maxWidth="max-w-7xl">
+      <PageHeader
+        title="Profil"
+        subtitle="Vos statistiques et inventaire"
+        icon={<User className="w-8 h-8 text-white" />}
+      />
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      
+      {/* Left Column: Stats & Profile */}
+      <div className="lg:col-span-4">
+        <div className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-8 text-center relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-purple-600/10 blur-[60px] -mr-16 -mt-16" />
+          
+          {user ? (
+            <>
+              <div className="relative inline-block mb-4">
+                <img 
+                  src={user.profile_image_url} 
+                  alt="" 
+                  className="w-24 h-24 rounded-full border-4 border-purple-500/50 p-1"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="absolute -bottom-2 -right-2 bg-purple-600 text-white text-[10px] font-black px-2 py-1 rounded-lg border-2 border-zinc-900">
+                  LVL {userProfile?.level || 1}
+                </div>
+              </div>
+
+              <h2 className="text-2xl font-black mb-1 tracking-tight">{user.display_name}</h2>
+              <div className="flex items-center justify-center gap-2 mb-6">
+                <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest ${userProfile?.is_sub ? 'bg-purple-500 text-white' : 'bg-zinc-800 text-zinc-500'}`}>
+                  {userProfile?.is_sub ? 'Abonné Premium' : 'Joueur Standard'}
+                </span>
+                <button onClick={handleToggleSub} className="text-[10px] font-bold text-zinc-600 hover:text-white transition-colors uppercase">
+                  (Simuler)
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {/* XP Bar */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                    <span>Expérience</span>
+                    <span>{userProfile?.xp || 0} / {(userProfile?.level || 1) * 1000}</span>
                   </div>
-                </div>
-
-                <h2 className="text-2xl font-black mb-1 tracking-tight">{user.display_name}</h2>
-                <div className="flex items-center justify-center gap-2 mb-6">
-                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest ${userProfile?.is_sub ? 'bg-purple-500 text-white' : 'bg-zinc-800 text-zinc-500'}`}>
-                    {userProfile?.is_sub ? 'Abonné Premium' : 'Joueur Standard'}
-                  </span>
-                  <button onClick={handleToggleSub} className="text-[10px] font-bold text-zinc-600 hover:text-white transition-colors uppercase">
-                    (Simuler)
-                  </button>
-                </div>
-
-                <div className="space-y-4">
-                  {/* XP Bar */}
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-zinc-500">
-                      <span>Expérience</span>
-                      <span>{userProfile?.xp || 0} / {(userProfile?.level || 1) * 1000}</span>
-                    </div>
                     <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
                       <div 
                         className="h-full bg-purple-500 transition-all duration-1000" 
@@ -260,7 +266,7 @@ export default function Profile() {
       {/* PayPal Modal */}
       {showPayPal && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-[32px] p-8 space-y-6 shadow-2xl relative overflow-hidden">
+          <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-[32px] p-6 md:p-8 space-y-6 shadow-2xl relative overflow-y-auto custom-scrollbar max-h-[90%]">
             <div className="absolute top-0 right-0 w-32 h-32 bg-fuchsia-600/10 blur-[60px] -mr-16 -mt-16" />
             
             <div className="flex items-center justify-between relative">
@@ -326,6 +332,6 @@ export default function Profile() {
           </div>
         </div>
       )}
-    </div>
+    </PageLayout>
   );
 }

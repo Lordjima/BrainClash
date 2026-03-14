@@ -84,7 +84,7 @@ export default function HostGameArea({
         </h2>
 
         <div className="grid grid-cols-2 gap-4">
-          {currentQuestion?.options.map((option, idx) => (
+          {currentQuestion?.options?.map((option, idx) => (
             <div
               key={idx}
               className={`p-4 rounded-xl border ${

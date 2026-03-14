@@ -4,6 +4,9 @@ import { collection, addDoc, getDocs, deleteDoc, doc, setDoc } from 'firebase/fi
 import { db, auth } from '../lib/firebase';
 import { Theme, ShopItem, Badge, Chest, Question } from '../types';
 import { SeedService } from '../services/SeedService';
+import { PageLayout } from '../components/ui/PageLayout';
+import { PageHeader } from '../components/ui/PageHeader';
+import { Button } from '../components/ui/Button';
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<'themes' | 'items' | 'badges' | 'chests'>('themes');
@@ -52,7 +55,7 @@ export default function AdminDashboard() {
 
   if (!isAdmin) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-950 text-white p-6">
+      <div className="h-full flex items-center justify-center bg-zinc-950 text-white p-6">
         <div className="text-center">
           <Shield className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold mb-2">Accès Refusé</h1>
@@ -81,36 +84,33 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white p-6 pb-24">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-          <div>
-            <h1 className="text-3xl font-black uppercase tracking-tighter flex items-center gap-3">
-              <Shield className="w-8 h-8 text-accent-500" />
-              Panel Admin
-            </h1>
-            <p className="text-zinc-500 text-sm">Gestion du contenu de BrainClash</p>
-          </div>
-          
+    <PageLayout maxWidth="max-w-6xl">
+      <PageHeader
+        title="Panel Admin"
+        subtitle="Gestion du contenu de BrainClash"
+        icon={<Shield className="w-8 h-8 text-accent-500" />}
+        actions={
           <div className="flex gap-2">
-            <button 
+            <Button 
               onClick={handleInitializeAdmin}
-              className="flex items-center gap-2 bg-purple-900/20 hover:bg-purple-900/40 text-purple-400 border border-purple-800/50 px-4 py-2 rounded-xl transition-colors"
+              variant="secondary"
+              className="gap-2"
             >
               <Shield className="w-4 h-4" />
               Initialiser mon Profil Admin
-            </button>
-
-            <button 
+            </Button>
+            <Button 
               onClick={handleSeed}
-            disabled={isSeeding}
-            className="flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 px-4 py-2 rounded-xl transition-colors disabled:opacity-50"
-          >
-            <Database className={`w-4 h-4 ${isSeeding ? 'animate-spin' : ''}`} />
-            {isSeeding ? 'Initialisation...' : 'Réinitialiser Dataset'}
-          </button>
-        </div>
-      </div>
+              disabled={isSeeding}
+              variant="secondary"
+              className="gap-2"
+            >
+              <Database className={`w-4 h-4 ${isSeeding ? 'animate-spin' : ''}`} />
+              {isSeeding ? 'Initialisation...' : 'Réinitialiser Dataset'}
+            </Button>
+          </div>
+        }
+      />
 
       {error && (
         <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-4 rounded-2xl mb-8 flex items-center gap-3">
@@ -134,8 +134,7 @@ export default function AdminDashboard() {
           {activeTab === 'badges' && <BadgeManager />}
           {activeTab === 'chests' && <ChestManager />}
         </div>
-      </div>
-    </div>
+    </PageLayout>
   );
 }
 

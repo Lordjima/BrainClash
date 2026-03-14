@@ -3,6 +3,11 @@ import { collection, onSnapshot, doc, deleteDoc, addDoc } from 'firebase/firesto
 import { db, auth } from '../lib/firebase';
 import { Check, X, Inbox, User } from 'lucide-react';
 import { SubmittedQuestion, Theme } from '../types';
+import { PageLayout } from '../components/ui/PageLayout';
+import { PageHeader } from '../components/ui/PageHeader';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Badge } from '../components/ui/Badge';
 
 export default function ReviewQuestions() {
   const [questions, setQuestions] = useState<SubmittedQuestion[]>([]);
@@ -53,35 +58,33 @@ export default function ReviewQuestions() {
   };
 
   return (
-    <div className="h-full bg-transparent text-white p-4 overflow-hidden">
-      <div className="max-w-4xl mx-auto h-full flex flex-col overflow-hidden">
-        <div className="flex items-center gap-4 mb-8 shrink-0">
-          <h1 className="text-3xl font-bold flex items-center gap-3">
-            <Inbox className="w-8 h-8 text-blue-500" />
-            Vérification des questions
-          </h1>
-        </div>
+    <PageLayout maxWidth="max-w-4xl">
+      <PageHeader
+        title="Vérification des questions"
+        subtitle="Validez les questions proposées par la communauté"
+        icon={<Inbox className="w-8 h-8 text-blue-500" />}
+      />
 
-        <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
-          {loading ? (
+      <div className="pr-2">
+        {loading ? (
           <div className="flex justify-center py-20">
             <div className="w-12 h-12 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : questions.length === 0 ? (
-          <div className="bg-zinc-900 p-12 rounded-3xl border border-zinc-800 shadow-xl text-center">
+          <Card className="p-12 text-center">
             <Inbox className="w-16 h-16 text-zinc-600 mx-auto mb-4" />
             <h2 className="text-2xl font-bold mb-2">Aucune question en attente</h2>
             <p className="text-zinc-400">Vos abonnés n'ont pas encore proposé de nouvelles questions.</p>
-          </div>
+          </Card>
         ) : (
           <div className="grid gap-6">
             {questions.map((q) => (
-              <div key={q.id} className="bg-zinc-900 p-6 rounded-3xl border border-zinc-800 shadow-xl flex flex-col md:flex-row gap-6">
+              <Card key={q.id} className="p-6 flex flex-col md:flex-row gap-6">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-4 text-sm">
-                    <span className="bg-violet-600/20 text-violet-400 px-3 py-1 rounded-full font-medium">
+                    <Badge variant="fuchsia">
                       {themes[q.theme]?.name || q.theme}
-                    </span>
+                    </Badge>
                     <span className="text-zinc-500 flex items-center gap-1">
                       <User className="w-4 h-4" />
                       Proposé par <strong className="text-zinc-300">{q.author}</strong>
@@ -91,7 +94,7 @@ export default function ReviewQuestions() {
                   <h3 className="text-xl font-bold mb-4">{q.text}</h3>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {q.options.map((opt, i) => (
+                    {q?.options?.map((opt, i) => (
                       <div 
                         key={i} 
                         className={`p-3 rounded-xl border ${i === q.correctOptionIndex ? 'bg-green-500/10 border-green-500/50 text-green-400 font-bold' : 'bg-zinc-800/50 border-zinc-700/50 text-zinc-300'}`}
@@ -104,27 +107,27 @@ export default function ReviewQuestions() {
                 </div>
 
                 <div className="flex md:flex-col gap-3 justify-center md:border-l border-zinc-800 md:pl-6">
-                  <button
+                  <Button
                     onClick={() => handleReview(q.id, 'approve', q.theme)}
-                    className="flex-1 md:flex-none bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-6 rounded-xl flex items-center justify-center gap-2 transition-colors"
+                    className="flex-1 md:flex-none bg-green-600 hover:bg-green-500 text-white"
                   >
                     <Check className="w-5 h-5" />
                     Approuver
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={() => handleReview(q.id, 'reject', q.theme)}
-                    className="flex-1 md:flex-none bg-red-600/20 hover:bg-red-600/40 text-red-500 font-bold py-3 px-6 rounded-xl flex items-center justify-center gap-2 transition-colors"
+                    variant="danger"
+                    className="flex-1 md:flex-none"
                   >
                     <X className="w-5 h-5" />
                     Rejeter
-                  </button>
+                  </Button>
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
         )}
-        </div>
       </div>
-    </div>
+    </PageLayout>
   );
 }

@@ -1,9 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Package, Search, Filter, Trash2, Zap, Shield, Heart, Info, ShoppingBag, Backpack, Sparkles, ArrowLeft, Play, Star, User } from 'lucide-react';
 import { useData } from '../DataContext';
 import * as LucideIcons from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { QuizService } from '../services/QuizService';
+import { PageLayout } from '../components/ui/PageLayout';
+import { PageHeader } from '../components/ui/PageHeader';
+import { Button } from '../components/ui/Button';
 
 export default function Inventory() {
   const navigate = useNavigate();
@@ -11,6 +15,14 @@ export default function Inventory() {
   const [filter, setFilter] = useState<'all' | 'attack' | 'defense' | 'utility'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [twitchUser, setTwitchUser] = useState<any>(null);
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem('twitch_user');
+    if (storedUser) {
+      setTwitchUser(JSON.parse(storedUser));
+    }
+  }, []);
 
   const getIcon = (iconName: string, size = "w-6 h-6") => {
     const Icon = (LucideIcons as any)[iconName] || Package;
@@ -28,13 +40,10 @@ export default function Inventory() {
             <h2 className="text-2xl font-black uppercase italic tracking-tighter">Accès Restreint</h2>
             <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mt-2">Connectez-vous pour accéder à votre équipement de combat</p>
           </div>
-          <button 
-            onClick={() => navigate('/')}
-            className="w-full bg-white text-black py-4 rounded-2xl font-black text-sm transition-all active:scale-95 flex items-center justify-center gap-2"
-          >
+          <Button onClick={() => navigate('/')} variant="secondary" className="w-full">
             <ArrowLeft className="w-4 h-4" />
             RETOUR À L'ACCUEIL
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -56,7 +65,7 @@ export default function Inventory() {
   };
 
   return (
-    <div className="h-full bg-zinc-950 text-white overflow-hidden flex flex-col p-4 md:p-8 relative">
+    <PageLayout maxWidth="max-w-7xl">
       {/* Immersive Background Effects */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-fuchsia-600/10 blur-[120px] rounded-full" />
@@ -64,54 +73,46 @@ export default function Inventory() {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-5" />
       </div>
 
-      <div className="max-w-7xl mx-auto w-full h-full flex flex-col gap-8 relative z-10">
+      <div className="relative z-10">
         
-        {/* Top Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 shrink-0">
-          <div className="space-y-3">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-fuchsia-500/10 rounded-[24px] flex items-center justify-center border border-fuchsia-500/20 shadow-2xl shadow-fuchsia-500/20 rotate-3">
-                <ShoppingBag className="w-7 h-7 text-fuchsia-500" />
-              </div>
-              <div>
-                <h1 className="text-5xl font-black italic uppercase tracking-tighter leading-none">Inventaire</h1>
-                <p className="text-zinc-500 text-[10px] font-black uppercase tracking-[0.5em] mt-2">Arsenal de combat & Équipements</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-6">
-            <div className="hidden sm:flex items-center gap-8 bg-zinc-900/40 backdrop-blur-2xl px-8 py-4 rounded-[24px] border border-white/5 shadow-2xl">
-              <div className="flex flex-col">
-                <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-1">Capacité</span>
-                <span className="text-xl font-black font-mono leading-none">{stats.total}<span className="text-zinc-700 text-sm">/15</span></span>
-              </div>
-              <div className="w-px h-10 bg-white/5" />
-              <div className="flex gap-6">
-                <div className="flex flex-col items-center group cursor-help">
-                  <Zap className="w-4 h-4 text-red-500 mb-1 group-hover:scale-110 transition-transform" />
-                  <span className="text-xs font-black">{stats.attacks}</span>
+        <PageHeader
+          title="Inventaire"
+          subtitle="Arsenal de combat & Équipements"
+          icon={<ShoppingBag className="w-8 h-8 text-fuchsia-500" />}
+          actions={
+            <div className="flex items-center gap-6">
+              <div className="hidden sm:flex items-center gap-8 bg-zinc-900/40 backdrop-blur-2xl px-8 py-4 rounded-[24px] border border-white/5 shadow-2xl">
+                <div className="flex flex-col">
+                  <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-1">Capacité</span>
+                  <span className="text-xl font-black font-mono leading-none">{stats.total}<span className="text-zinc-700 text-sm">/15</span></span>
                 </div>
-                <div className="flex flex-col items-center group cursor-help">
-                  <Shield className="w-4 h-4 text-blue-500 mb-1 group-hover:scale-110 transition-transform" />
-                  <span className="text-xs font-black">{stats.defense}</span>
+                <div className="w-px h-10 bg-white/5" />
+                <div className="flex gap-6">
+                  <div className="flex flex-col items-center group cursor-help">
+                    <Zap className="w-4 h-4 text-red-500 mb-1 group-hover:scale-110 transition-transform" />
+                    <span className="text-xs font-black">{stats.attacks}</span>
+                  </div>
+                  <div className="flex flex-col items-center group cursor-help">
+                    <Shield className="w-4 h-4 text-blue-500 mb-1 group-hover:scale-110 transition-transform" />
+                    <span className="text-xs font-black">{stats.defense}</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <Link 
-              to="/auction-house"
-              className="group relative bg-white text-black px-10 py-5 rounded-[24px] font-black text-xs transition-all flex items-center gap-3 shadow-2xl hover:shadow-white/10 active:scale-95 overflow-hidden"
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-fuchsia-500 to-purple-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-              <ShoppingBag className="w-5 h-5 relative z-10 group-hover:text-white transition-colors" />
-              <span className="relative z-10 group-hover:text-white transition-colors">MARCHÉ NOIR</span>
-            </Link>
-          </div>
-        </div>
+              <Link 
+                to="/auction-house"
+                className="group relative bg-white text-black px-10 py-5 rounded-[24px] font-black text-xs transition-all flex items-center gap-3 shadow-2xl hover:shadow-white/10 active:scale-95 overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-fuchsia-500 to-purple-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <ShoppingBag className="w-5 h-5 relative z-10 group-hover:text-white transition-colors" />
+                <span className="relative z-10 group-hover:text-white transition-colors">MARCHÉ NOIR</span>
+              </Link>
+            </div>
+          }
+        />
 
         {/* Main Grid Layout */}
-        <div className="flex-1 flex flex-col lg:flex-row gap-8 overflow-hidden">
+        <div className="flex-1 flex flex-col lg:flex-row gap-8 overflow-y-auto lg:overflow-hidden custom-scrollbar">
           
           {/* Left Sidebar: Character & Filters */}
           <div className="lg:w-80 flex flex-col gap-6 shrink-0">
@@ -254,7 +255,7 @@ export default function Inventory() {
                 initial={{ x: 100, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 exit={{ x: 100, opacity: 0 }}
-                className="lg:w-[400px] bg-zinc-900/40 backdrop-blur-2xl border border-white/5 rounded-[48px] p-10 flex flex-col shrink-0 shadow-2xl relative overflow-hidden"
+                className="lg:w-[400px] bg-zinc-900/40 backdrop-blur-2xl border border-white/5 rounded-[48px] p-6 lg:p-10 flex flex-col shrink-0 shadow-2xl relative overflow-y-auto custom-scrollbar"
               >
                 <div className="absolute top-0 right-0 w-64 h-64 bg-fuchsia-500/5 blur-[100px] rounded-full pointer-events-none" />
                 
@@ -326,7 +327,14 @@ export default function Inventory() {
                     <Play className="w-6 h-6 fill-current" />
                     ÉQUIPER L'OBJET
                   </button>
-                  <button className="w-full bg-zinc-900/50 hover:bg-red-500/10 hover:text-red-500 text-zinc-600 py-5 rounded-[24px] font-black text-[11px] uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-3 group border border-transparent hover:border-red-500/20">
+                  <button 
+                    onClick={async () => {
+                      if (!twitchUser || !selectedItem) return;
+                      await QuizService.removeFromInventory(selectedItem.id.toString());
+                      setSelectedItem(null);
+                    }}
+                    className="w-full bg-zinc-900/50 hover:bg-red-500/10 hover:text-red-500 text-zinc-600 py-5 rounded-[24px] font-black text-[11px] uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-3 group border border-transparent hover:border-red-500/20"
+                  >
                     <Trash2 className="w-5 h-5 group-hover:scale-110 transition-transform" />
                     DÉTRUIRE L'OBJET
                   </button>
@@ -336,6 +344,6 @@ export default function Inventory() {
           </AnimatePresence>
         </div>
       </div>
-    </div>
+    </PageLayout>
   );
 }

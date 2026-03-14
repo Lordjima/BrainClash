@@ -6,7 +6,7 @@ interface QuizHistoryProps {
   savedQuizzes: SavedQuiz[];
   themes: Record<string, any>;
   onLaunch: (quiz: SavedQuiz) => void;
-  onDelete: (id: string | number) => void;
+  onDelete: (id: string) => void;
 }
 
 export default function QuizHistory({

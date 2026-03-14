@@ -27,7 +27,7 @@ export default function GameFinished({ room, me, onNavigateHome }: GameFinishedP
         <div className="p-4 bg-zinc-900/50 border-b border-zinc-800">
           <h3 className="font-bold text-center text-zinc-300 uppercase tracking-widest text-sm">Classement Final</h3>
         </div>
-        <div className="divide-y divide-zinc-800/50 max-h-[40vh] overflow-y-auto">
+        <div className="divide-y divide-zinc-800/50 max-h-[40%] overflow-y-auto">
           {sortedPlayers.map((player, index) => (
             <div key={player.id} className={`flex items-center gap-4 p-4 ${player.id === me.id ? 'bg-fuchsia-900/20' : ''}`}>
               <div className="w-8 text-center font-bold text-zinc-500">

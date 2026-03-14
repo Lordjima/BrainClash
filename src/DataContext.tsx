@@ -110,9 +110,22 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     });
 
     const unsubLeaderboard = onSnapshot(collection(db, 'profiles'), (snapshot) => {
-      const data = snapshot.docs.map(doc => doc.data() as GlobalLeaderboardEntry);
+      const allProfiles = snapshot.docs.map(doc => doc.data() as GlobalLeaderboardEntry);
+      
+      // Group by username and keep the one with the highest score
+      const uniqueProfilesMap = new Map<string, GlobalLeaderboardEntry>();
+      
+      allProfiles.forEach(profile => {
+        const existing = uniqueProfilesMap.get(profile.username);
+        if (!existing || profile.score > existing.score) {
+          uniqueProfilesMap.set(profile.username, profile);
+        }
+      });
+      
+      const uniqueProfiles = Array.from(uniqueProfilesMap.values());
+      
       // Sort by score descending
-      setLeaderboard(data.sort((a, b) => b.score - a.score));
+      setLeaderboard(uniqueProfiles.sort((a, b) => b.score - a.score));
     }, (err) => {
       console.error('Leaderboard error:', err);
       if (err.message?.includes('insufficient permissions')) {

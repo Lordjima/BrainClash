@@ -8,6 +8,7 @@ import { useData } from '../DataContext';
 import HostHeader from '../components/host/HostHeader';
 import HostGameArea from '../components/host/HostGameArea';
 import HostPlayerList from '../components/host/HostPlayerList';
+import { PageLayout } from '../components/ui/PageLayout';
 
 export default function HostDashboard() {
   const { id } = useParams<{ id: string }>();
@@ -27,14 +28,17 @@ export default function HostDashboard() {
   }, [id]);
 
   if (!room) {
-    return <div className="min-h-screen bg-transparent text-white flex items-center justify-center">Chargement...</div>;
+    return <div className="h-full bg-transparent text-white flex items-center justify-center">Chargement...</div>;
   }
 
   const handleStart = async () => {
     if (!id) return;
     setIsLoading(true);
-    await QuizService.updateRoomStatus(id, 'active');
-    await QuizService.nextQuestion(id);
+    const roomRef = doc(db, 'rooms', id);
+    await updateDoc(roomRef, { 
+        status: 'active',
+        questionStartTime: Date.now()
+    });
     setIsLoading(false);
   };
 
@@ -53,13 +57,13 @@ export default function HostDashboard() {
 
   const handleRestart = async () => {
     if (!id) return;
-    await QuizService.updateRoomStatus(id, 'lobby');
+    await QuizService.resetRoom(id);
   };
 
   const handleClose = async () => {
     if (!id) return;
     setIsLoading(true);
-    await QuizService.updateRoomStatus(id, 'finished');
+    await QuizService.finishGame(id);
     setIsLoading(false);
     navigate('/');
   };
@@ -71,11 +75,11 @@ export default function HostDashboard() {
   const answersCount = playersList.filter(p => p.hasAnswered).length;
 
   return (
-    <div className="h-full bg-transparent text-white p-4 overflow-hidden">
-      <div className="max-w-6xl mx-auto h-full grid grid-cols-1 lg:grid-cols-3 gap-4 overflow-y-auto lg:overflow-hidden custom-scrollbar">
+    <PageLayout maxWidth="max-w-6xl">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 flex flex-col gap-4">
           <HostHeader room={room} onClose={handleClose} />
-          <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
+          <div className="flex-1">
             <HostGameArea
               room={room}
               onStartGame={handleStart}
@@ -85,10 +89,10 @@ export default function HostDashboard() {
             />
           </div>
         </div>
-        <div className="lg:col-span-1 h-full overflow-hidden flex flex-col">
+        <div className="lg:col-span-1 flex flex-col">
           <HostPlayerList room={room} />
         </div>
       </div>
-    </div>
+    </PageLayout>
   );
 }

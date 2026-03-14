@@ -1,5 +1,5 @@
 export type Question = {
-  id: string | number;
+  id: string;
   text: string;
   options: string[];
   correctOptionIndex: number;
@@ -8,7 +8,7 @@ export type Question = {
 };
 
 export type Player = {
-      id: string | number;
+      id: string;
       username: string;
       avatar?: string;
       score: number;
@@ -21,8 +21,18 @@ export type Player = {
       streak?: number;
     };
 
+export type RoomEffect = {
+  id: string;
+  type: string;
+  sourceId: string;
+  sourceName: string;
+  targetId?: string;
+  createdAt: number;
+  duration: number;
+};
+
 export type RoomState = {
-      id: string | number;
+      id: string;
       name?: string;
       description?: string;
       hostId: string;
@@ -36,10 +46,11 @@ export type RoomState = {
       theme?: string;
       isPublic?: boolean;
       timeLimit: number;
+      activeEffects?: RoomEffect[];
     };
 
 export interface Badge {
-  id: string | number;
+  id: string;
   name: string;
   description: string;
   icon: string;
@@ -57,13 +68,13 @@ export type GlobalLeaderboardEntry = {
   brainCoins: number;
   is_sub: boolean;
   badges: string[];
-  inventory: (string | number)[];
+  inventory: string[];
   level: number;
   xp: number;
 };
 
 export type AuctionItem = {
-  id: string | number;
+  id: string;
   seller: string;
   itemId: string;
   price: number;
@@ -72,7 +83,7 @@ export type AuctionItem = {
 };
 
 export type ShopItem = {
-  id: string | number;
+  id: string;
   name: string;
   description: string;
   price: number;
@@ -82,7 +93,7 @@ export type ShopItem = {
 };
 
 export type Chest = {
-  id: string | number;
+  id: string;
   name: string;
   description: string;
   price: number;
@@ -92,13 +103,13 @@ export type Chest = {
 };
 
 export type Theme = {
-  id: string | number;
+  id: string;
   name: string;
   questions: Question[];
 };
 
 export type SavedQuiz = {
-  id: string | number;
+  id: string;
   name: string;
   description: string;
   theme: string;
@@ -107,7 +118,7 @@ export type SavedQuiz = {
 };
 
 export type SubmittedQuestion = {
-  id: string | number;
+  id: string;
   text: string;
   options: string[];
   correctOptionIndex: number;

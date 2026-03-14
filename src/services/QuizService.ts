@@ -144,16 +144,72 @@ export class QuizService {
   }
 
   /**
-   * Update room status (Host only)
+   * Reset room to lobby state (Host only)
    */
-  static async updateRoomStatus(roomCode: string, status: RoomState['status']): Promise<void> {
+  static async resetRoom(roomCode: string): Promise<void> {
     const roomRef = doc(db, this.ROOMS_COLLECTION, roomCode);
-    await updateDoc(roomRef, { status });
+    const roomSnap = await getDoc(roomRef);
+    if (!roomSnap.exists()) return;
+    const room = roomSnap.data() as RoomState;
+
+    await updateDoc(roomRef, {
+      status: 'lobby',
+      currentQuestionIndex: 0,
+      questionStartTime: null,
+      showAnswer: false,
+      ...Object.keys(room.players).reduce((acc, uid) => ({
+        ...acc,
+        [`players.${uid}.hasAnswered`]: false,
+        [`players.${uid}.isCorrect`]: false,
+        [`players.${uid}.score`]: 0
+      }), {})
+    });
   }
 
   /**
-   * Move to next question (Host only)
+   * Finish the game and update global profiles
    */
+  static async finishGame(roomCode: string): Promise<void> {
+    const roomRef = doc(db, this.ROOMS_COLLECTION, roomCode);
+    const roomSnap = await getDoc(roomRef);
+    if (!roomSnap.exists()) return;
+
+    const room = roomSnap.data() as RoomState;
+    if (room.status === 'finished') return; // Already finished
+
+    // Update room status
+    await updateDoc(roomRef, { status: 'finished' });
+
+    // Update global profiles for all players
+    for (const [uid, player] of Object.entries(room.players)) {
+      const profileRef = doc(db, this.PROFILES_COLLECTION, uid);
+      const profileSnap = await getDoc(profileRef);
+
+      if (profileSnap.exists()) {
+        await updateDoc(profileRef, {
+          score: increment(player.score),
+          games_played: increment(1),
+          coins: increment(Math.floor(player.score / 10)), // Example: 1 coin per 10 points
+          brainCoins: increment(Math.floor(player.score / 100)) // Example: 1 brainCoin per 100 points
+        });
+      } else {
+        // Create profile if it doesn't exist
+        await setDoc(profileRef, {
+          username: player.username,
+          score: player.score,
+          games_played: 1,
+          date: Date.now(),
+          coins: Math.floor(player.score / 10),
+          brainCoins: Math.floor(player.score / 100),
+          is_sub: false,
+          badges: [],
+          inventory: [],
+          level: 1,
+          xp: player.score
+        });
+      }
+    }
+  }
   static async nextQuestion(roomCode: string): Promise<void> {
     const roomRef = doc(db, this.ROOMS_COLLECTION, roomCode);
     const roomSnap = await getDoc(roomRef);
@@ -175,7 +231,7 @@ export class QuizService {
         }), {})
       });
     } else {
-      await updateDoc(roomRef, { status: 'finished' });
+      await this.finishGame(roomCode);
     }
   }
 
@@ -185,13 +241,14 @@ export class QuizService {
   static async addToInventory(itemId: string): Promise<void> {
     const user = auth.currentUser;
     if (!user) throw new Error('Authentication required');
+    if (user.isAnonymous) throw new Error('Veuillez vous connecter avec Twitch pour utiliser cette fonctionnalité');
 
     const profileRef = doc(db, this.PROFILES_COLLECTION, user.uid);
     const profileSnap = await getDoc(profileRef);
 
     if (profileSnap.exists()) {
       const profile = profileSnap.data() as GlobalLeaderboardEntry;
-      if (profile.inventory.length >= 15) {
+      if ((profile.inventory || []).length >= 15) {
         throw new Error('Inventaire plein (15 emplacements max)');
       }
       await updateDoc(profileRef, {
@@ -225,9 +282,51 @@ export class QuizService {
     });
   }
 
+  static async triggerEffect(roomId: string, type: string, sourceName: string, duration: number = 10000): Promise<void> {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const roomRef = doc(db, this.ROOMS_COLLECTION, roomId);
+    const effect = {
+      id: Math.random().toString(36).substring(2, 9),
+      type,
+      sourceId: user.uid,
+      sourceName,
+      createdAt: Date.now(),
+      duration
+    };
+
+    await updateDoc(roomRef, {
+      activeEffects: arrayUnion(effect)
+    });
+  }
+
   /**
-   * Buy a chest
+   * Buy an item from the shop
    */
+  static async buyItem(itemId: string, price: number): Promise<void> {
+    const user = auth.currentUser;
+    if (!user) throw new Error('Authentication required');
+
+    const profileRef = doc(db, this.PROFILES_COLLECTION, user.uid);
+    const profileSnap = await getDoc(profileRef);
+    if (!profileSnap.exists()) throw new Error('Profile not found');
+
+    const profile = profileSnap.data() as GlobalLeaderboardEntry;
+
+    if (profile.coins < price) {
+      throw new Error('Pas assez de coins');
+    }
+
+    if ((profile.inventory || []).length >= 15) {
+      throw new Error('Inventaire plein (15 emplacements max)');
+    }
+
+    await updateDoc(profileRef, {
+      coins: increment(-price),
+      inventory: arrayUnion(itemId)
+    });
+  }
   static async buyChest(chestId: string): Promise<void> {
     const user = auth.currentUser;
     if (!user) throw new Error('Authentication required');

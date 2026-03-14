@@ -2,8 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { collection, addDoc } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
-import { Send, CheckCircle } from 'lucide-react';
+import { Send, CheckCircle, HelpCircle } from 'lucide-react';
 import { useData } from '../DataContext';
+import { PageLayout } from '../components/ui/PageLayout';
+import { PageHeader } from '../components/ui/PageHeader';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
 
 export default function SubmitQuestion() {
   const navigate = useNavigate();
@@ -67,7 +71,7 @@ export default function SubmitQuestion() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-transparent text-white flex flex-col items-center justify-center p-6 text-center">
+      <div className="h-full bg-transparent text-white flex flex-col items-center justify-center p-6 text-center">
         <h2 className="text-2xl font-bold mb-4">Connexion requise</h2>
         <p className="text-zinc-400 mb-8">Vous devez être connecté pour proposer une question.</p>
         <Link to="/" className="bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 px-6 rounded-xl transition-colors">
@@ -78,26 +82,27 @@ export default function SubmitQuestion() {
   }
 
   return (
-    <div className="h-full bg-transparent text-white p-6 overflow-hidden">
-      <div className="max-w-2xl mx-auto h-full flex flex-col overflow-hidden">
-        <div className="flex items-center gap-4 mb-8 shrink-0">
-          <h1 className="text-3xl font-bold">Proposer une question</h1>
-        </div>
+    <PageLayout maxWidth="max-w-7xl">
+      <PageHeader
+        title="Proposer une question"
+        subtitle="Contribuez au jeu en proposant vos propres questions"
+        icon={<HelpCircle className="w-8 h-8 text-blue-500" />}
+      />
 
-        <div className="bg-zinc-900 p-8 rounded-3xl border border-zinc-800 shadow-xl flex-1 overflow-y-auto custom-scrollbar">
-          {submitted ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <CheckCircle className="w-16 h-16 text-green-500 mb-4" />
-              <h2 className="text-2xl font-bold mb-2">Question envoyée !</h2>
-              <p className="text-zinc-400">Merci pour votre contribution. Elle sera examinée par le streamer.</p>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-2">Thème</label>
-                <div className="relative mb-3">
-                  <select
-                    value={theme}
+      <Card className="p-8">
+        {submitted ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <CheckCircle className="w-16 h-16 text-green-500 mb-4" />
+            <h2 className="text-2xl font-bold mb-2">Question envoyée !</h2>
+            <p className="text-zinc-400">Merci pour votre contribution. Elle sera examinée par le streamer.</p>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-zinc-400 mb-2">Thème</label>
+              <div className="relative mb-3">
+                <select
+                  value={theme}
                     onChange={(e) => setTheme(e.target.value)}
                     className="w-full appearance-none bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-fuchsia-500 transition-all"
                   >
@@ -161,17 +166,17 @@ export default function SubmitQuestion() {
                 </div>
               </div>
 
-              <button
+              <Button
                 type="submit"
-                className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-colors mt-8"
+                className="w-full py-4 mt-8"
+                size="lg"
               >
                 <Send className="w-5 h-5" />
                 Soumettre la question
-              </button>
+              </Button>
             </form>
           )}
-        </div>
-      </div>
-    </div>
+        </Card>
+    </PageLayout>
   );
 }

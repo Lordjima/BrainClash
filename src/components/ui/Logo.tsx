@@ -11,7 +11,7 @@ export default function Logo({ className = '' }: { className?: string }) {
           <Zap className="w-7 h-7 text-fuchsia-500 drop-shadow-[0_0_8px_rgba(217,70,239,0.5)]" fill="currentColor" />
         </div>
       </div>
-      <div className="flex flex-col -space-y-1">
+      <div className="flex flex-col -space-y-1 hidden sm:flex">
         <span className="font-display font-black text-2xl tracking-tighter text-white uppercase italic">
           Brain<span className="text-fuchsia-500">Clash</span>
         </span>

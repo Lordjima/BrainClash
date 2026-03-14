@@ -20,18 +20,20 @@ export default function Inventory({ inventory, onUseItem }: InventoryProps) {
   if (!inventory || inventory.length === 0) return null;
 
   return (
-    <div className="bg-zinc-900/50 rounded-2xl border border-zinc-800 p-3 mt-4">
-      <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-widest mb-3">Inventaire</h3>
-      <div className="grid grid-cols-2 gap-2">
+    <div className="flex flex-col">
+      <h3 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4">Inventaire</h3>
+      <div className="grid grid-cols-2 gap-3">
         {inventory.map((itemId, index) => (
           <button
             key={`${itemId}-${index}`}
             onClick={() => onUseItem(itemId)}
-            className="flex flex-col items-center justify-center p-2 bg-zinc-800 hover:bg-zinc-700 rounded-xl transition-colors gap-2 border border-zinc-700"
+            className="flex flex-col items-center justify-center p-4 bg-zinc-900/50 hover:bg-fuchsia-500/10 rounded-2xl transition-all gap-3 border-2 border-zinc-800 hover:border-fuchsia-500/50 hover:shadow-[0_0_20px_rgba(217,70,239,0.1)] group"
             title={`Utiliser ${itemId}`}
           >
-            {getIcon(itemId)}
-            <span className="text-xs font-medium capitalize truncate w-full text-center">{itemId}</span>
+            <div className="text-zinc-400 group-hover:text-fuchsia-400 transition-colors">
+              {getIcon(itemId)}
+            </div>
+            <span className="text-xs font-bold capitalize truncate w-full text-center text-zinc-300 group-hover:text-white transition-colors">{itemId}</span>
           </button>
         ))}
       </div>

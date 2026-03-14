@@ -5,7 +5,9 @@ import confetti from 'canvas-confetti';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { RoomState, Player } from '../types';
-import Logo from '../components/Logo';
+import Logo from '../components/ui/Logo';
+import { QuizService } from '../services/QuizService';
+import { updateDoc } from 'firebase/firestore';
 
 export default function Overlay() {
   const { id } = useParams<{ id: string }>();
@@ -37,6 +39,7 @@ export default function Overlay() {
     let timer: any;
     if (room?.status === 'active' && !room.showAnswer && room.questionStartTime) {
       const currentQ = room.questions[room.currentQuestionIndex];
+      if (!currentQ) return;
       timer = setInterval(() => {
         const now = Date.now();
         const elapsed = now - room.questionStartTime!;
@@ -45,12 +48,28 @@ export default function Overlay() {
         
         if (remaining === 0) {
           clearInterval(timer);
+          // Auto-reveal answer when timer hits 0
+          if (id) {
+            const roomRef = doc(db, 'rooms', id);
+            updateDoc(roomRef, { showAnswer: true });
+          }
         }
       }, 50);
     } else if (room?.showAnswer) {
       setTimeLeft(0);
       timer = setInterval(() => {
-        setNextQuestionTimeLeft((prev) => Math.max(0, prev - 50));
+        setNextQuestionTimeLeft((prev) => {
+          const next = Math.max(0, prev - 50);
+          if (next === 0 && id) {
+            // Check if it's the last question
+            if (room.currentQuestionIndex < room.questions.length - 1) {
+              QuizService.nextQuestion(id);
+            } else {
+              QuizService.finishGame(id);
+            }
+          }
+          return next;
+        });
       }, 50);
     } else if (room?.status === 'active') {
       const currentQ = room.questions[room.currentQuestionIndex];
@@ -89,7 +108,16 @@ export default function Overlay() {
     }
   }, [room?.showAnswer]);
 
-  if (!room) return <div className="w-screen h-screen bg-transparent" />;
+  useEffect(() => {
+    if (room?.status === 'finished' && id) {
+      const timer = setTimeout(() => {
+        QuizService.resetRoom(id);
+      }, 5000); // 5 seconds delay
+      return () => clearTimeout(timer);
+    }
+  }, [room?.status, id]);
+
+  if (!room) return <div className="w-full h-full bg-transparent" />;
 
   const sortedLeaderboard = (Object.values(room.players) as Player[])
     .sort((a, b) => b.score - a.score)
@@ -97,7 +125,7 @@ export default function Overlay() {
 
   if (room.status === 'lobby') {
     return (
-      <div className="w-screen h-screen bg-transparent p-8 flex flex-col items-center justify-center">
+      <div className="w-full h-full bg-transparent p-8 flex flex-col items-center justify-center">
         <div className="bg-zinc-950/90 backdrop-blur-xl border-2 border-fuchsia-500/30 rounded-3xl p-12 shadow-2xl text-center max-w-2xl w-full">
           <div className="flex justify-center mb-8">
             <Logo className="scale-150" />
@@ -121,12 +149,12 @@ export default function Overlay() {
   }
 
   if (room.status === 'finished') {
-    return <div className="w-screen h-screen bg-transparent" />;
+    return <div className="w-full h-full bg-transparent" />;
   }
 
   const currentQ = room.questions[room.currentQuestionIndex];
   if (!currentQ) {
-    return <div className="w-screen h-screen bg-transparent" />;
+    return <div className="w-full h-full bg-transparent" />;
   }
 
   const progressPercentage = (timeLeft / (currentQ.timeLimit * 1000)) * 100;
@@ -140,7 +168,7 @@ export default function Overlay() {
   }
 
   return (
-    <div className="w-screen h-screen bg-transparent overflow-hidden font-sans text-white p-8 flex flex-col justify-end">
+    <div className="w-full h-full bg-transparent overflow-hidden font-sans text-white p-8 flex flex-col justify-end">
       
       {/* Item Notification */}
       <AnimatePresence>
@@ -265,11 +293,11 @@ export default function Overlay() {
             </div>
 
             <h2 className="text-4xl font-extrabold mb-8 leading-tight text-white drop-shadow-lg">
-              {currentQ.text}
+              {currentQ?.text || 'Chargement...'}
             </h2>
 
             <div className="grid grid-cols-2 gap-4">
-              {currentQ.options.map((opt, i) => {
+              {currentQ?.options?.map((opt, i) => {
                 const isCorrect = i === currentQ.correctOptionIndex;
                 const showAsCorrect = room.showAnswer && isCorrect;
                 const showAsWrong = room.showAnswer && !isCorrect;

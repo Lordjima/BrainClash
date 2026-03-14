@@ -12,6 +12,7 @@ import Overlay from './pages/Overlay';
 import Profile from './pages/Profile';
 import Inventory from './pages/Inventory';
 import MenuPage from './pages/Menu';
+import Rules from './pages/Rules';
 import Leaderboard from './pages/Leaderboard';
 import CreateQuiz from './pages/CreateQuiz';
 import SubmitQuestion from './pages/SubmitQuestion';
@@ -20,9 +21,9 @@ import Auction from './pages/Auction';
 import Boutique from './pages/Boutique';
 import AdminDashboard from './pages/AdminDashboard';
 import AuthCallback from './pages/AuthCallback';
-import Navbar from './components/Navbar';
+import Navbar from './components/ui/Navbar';
+import { BottomBar } from './components/ui/BottomBar';
 import SpaceBackground from './components/SpaceBackground';
-import InventoryBag from './components/InventoryBag';
 
 import { DataProvider, useData } from './DataContext';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -33,7 +34,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
   if (error) {
     return (
       <div 
-        className="min-h-screen bg-zinc-950 text-white flex flex-col items-center justify-center p-6 text-center"
+        className="h-full bg-zinc-950 text-white flex flex-col items-center justify-center p-6 text-center"
         style={{ backgroundColor: '#09090b' }}
       >
         <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center mb-6">
@@ -56,7 +57,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
   if (!isLoaded || isLoading) {
     return (
       <div 
-        className="min-h-screen bg-zinc-950 text-white flex flex-col items-center justify-center gap-4"
+        className="fixed inset-0 bg-zinc-950 text-white flex flex-col items-center justify-center gap-4 z-[9999]"
         style={{ backgroundColor: '#09090b' }}
       >
         <div className="w-12 h-12 border-4 border-fuchsia-500/20 border-t-fuchsia-500 rounded-full animate-spin" />
@@ -75,16 +76,15 @@ export default function App() {
         <AppContent>
           <SpaceBackground />
           <BrowserRouter>
-            <InventoryBag />
             <Routes>
-              {/* Overlay doesn't need navbar */}
+              {/* Overlay doesn't need sidebar/layout */}
               <Route path="/overlay/:id" element={<Overlay />} />
               
-              {/* All other routes have navbar */}
+              {/* All other routes */}
               <Route path="*" element={
                 <div className="h-screen flex flex-col overflow-hidden">
                   <Navbar />
-                  <main className="flex-1 overflow-hidden">
+                  <main className="flex-1 overflow-y-auto custom-scrollbar relative">
                     <Routes>
                       <Route path="/" element={<Home />} />
                       <Route path="/create" element={<CreateQuiz />} />
@@ -95,6 +95,7 @@ export default function App() {
                       <Route path="/profile" element={<Profile />} />
                       <Route path="/inventory" element={<Inventory />} />
                       <Route path="/menu" element={<MenuPage />} />
+                      <Route path="/rules" element={<Rules />} />
                       <Route path="/leaderboard" element={<Leaderboard />} />
                       <Route path="/auction" element={<Auction />} />
                       <Route path="/boutique" element={<Boutique />} />
@@ -102,6 +103,7 @@ export default function App() {
                       <Route path="/auth/twitch/callback" element={<AuthCallback />} />
                     </Routes>
                   </main>
+                  <BottomBar />
                 </div>
               } />
             </Routes>

@@ -6,8 +6,11 @@ import { db } from '../lib/firebase';
 import { useData } from '../DataContext';
 import { AuctionItem } from '../types';
 import * as LucideIcons from 'lucide-react';
-import Navbar from '../components/Navbar';
-import SpaceBackground from '../components/SpaceBackground';
+import { PageLayout } from '../components/ui/PageLayout';
+import { PageHeader } from '../components/ui/PageHeader';
+import { Card } from '../components/ui/Card';
+import { Badge } from '../components/ui/Badge';
+import { Button } from '../components/ui/Button';
 
 export default function Auction() {
   const { userProfile, shopItems } = useData();
@@ -35,53 +38,71 @@ export default function Auction() {
   });
 
   return (
-    <div className="h-screen w-screen bg-zinc-950 text-white overflow-hidden relative font-display">
-      <SpaceBackground />
-      <Navbar />
-      <div className="h-full pt-20 px-6 md:px-12 pb-12 overflow-y-auto custom-scrollbar">
-        <div className="max-w-7xl mx-auto space-y-8">
-          <div className="flex items-center justify-between">
-            <h1 className="text-4xl font-black uppercase italic tracking-tighter">Hôtel des Ventes</h1>
-          </div>
-          
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
-              <input 
-                type="text" 
-                placeholder="Rechercher..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl pl-12 pr-6 py-3 outline-none focus:border-fuchsia-500 transition-colors"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredItems.map((item) => {
-              const shopItem = shopItems.find(si => si.id === item.itemId);
-              return (
-                <motion.div 
-                  key={item.id}
-                  whileHover={{ y: -5 }}
-                  className="bg-zinc-900/40 border border-zinc-800 rounded-3xl p-4 space-y-3"
-                >
-                  <div className="aspect-square bg-zinc-950 rounded-2xl flex items-center justify-center border border-zinc-800">
-                    {shopItem ? getIcon(shopItem.icon, "w-12 h-12 text-zinc-400") : <ShoppingBag className="w-12 h-12 text-zinc-700" />}
-                  </div>
-                  <h3 className="font-black text-lg">{shopItem?.name || item.itemId}</h3>
-                  <div className="flex items-center justify-between pt-4 border-t border-zinc-800">
-                    <span className="font-mono font-black text-amber-500">{item.price}</span>
-                    <button className="p-2 bg-zinc-800 rounded-xl hover:bg-white hover:text-black transition-all">
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                </motion.div>
-              );
-            })}
+    <PageLayout maxWidth="max-w-7xl">
+      <PageHeader
+        title="Hôtel des Ventes"
+        subtitle="Le marché noir des cerveaux"
+        actions={
+          <Badge variant="amber" icon={<Coins />}>
+            {userProfile?.coins || 0}
+          </Badge>
+        }
+      />
+      
+      <div className="flex flex-col md:flex-row gap-4 mb-8">
+        <div className="flex-1 relative group">
+          <div className="absolute -inset-0.5 bg-gradient-to-r from-fuchsia-600 to-purple-600 rounded-2xl blur opacity-20 group-focus-within:opacity-40 transition duration-500"></div>
+          <div className="relative">
+            <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500 group-focus-within:text-fuchsia-500 transition-colors" />
+            <input 
+              type="text" 
+              placeholder="Rechercher un objet ou un vendeur..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl pl-14 pr-6 py-4 outline-none focus:border-fuchsia-500/50 transition-all text-white font-medium placeholder:text-zinc-700"
+            />
           </div>
         </div>
+        <Button variant="secondary" className="p-4">
+          <Filter className="w-6 h-6 text-zinc-400" />
+        </Button>
       </div>
-    </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredItems.map((item) => {
+          const shopItem = shopItems.find(si => si.id === item.itemId);
+          return (
+            <Card key={item.id} hoverable className="flex flex-col gap-4">
+              <div className="aspect-square bg-zinc-950 rounded-2xl flex items-center justify-center border border-zinc-800 group-hover:border-fuchsia-500/20 transition-colors relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-600/5 to-purple-600/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                {shopItem ? getIcon(shopItem.icon, "w-16 h-16 text-zinc-400 group-hover:text-fuchsia-400 transition-all duration-500 group-hover:scale-110") : <ShoppingBag className="w-16 h-16 text-zinc-700" />}
+              </div>
+              
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-black text-xl text-white tracking-tight">{shopItem?.name || item.itemId}</h3>
+                  <div className="flex items-center gap-1.5 px-2 py-1 bg-zinc-800 rounded-lg border border-zinc-700">
+                    <User className="w-3 h-3 text-zinc-500" />
+                    <span className="text-[9px] font-black text-zinc-400 uppercase tracking-tighter truncate max-w-[60px]">{item.seller}</span>
+                  </div>
+                </div>
+                <p className="text-[10px] text-zinc-500 font-black uppercase tracking-widest leading-relaxed">Objet de collection rare</p>
+              </div>
+
+              <div className="mt-auto pt-4 border-t border-zinc-800 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Coins className="w-5 h-5 text-amber-500" />
+                  <span className="font-mono font-black text-lg text-amber-500">{item.price}</span>
+                </div>
+                <Button variant="primary" size="sm" className="gap-2">
+                  Enchérir
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    </PageLayout>
   );
 }

@@ -1,31 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, addDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, query, where, getDoc, doc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { SavedQuiz, Question } from '../types';
+import { SavedQuiz, Question, Theme } from '../types';
 import { useData } from '../DataContext';
-import QuizForm from '../components/quiz/QuizForm';
 import QuizHistory from '../components/quiz/QuizHistory';
 import { motion, AnimatePresence } from 'motion/react';
-import { X } from 'lucide-react';
+import { X, ChevronDown, Settings, Play, History, Check } from 'lucide-react';
 
 import { QuizService } from '../services/QuizService';
+import { PageLayout } from '../components/ui/PageLayout';
+import { PageHeader } from '../components/ui/PageHeader';
+import { Button } from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
 
 export default function CreateQuiz() {
   const navigate = useNavigate();
   const { themes } = useData();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [theme, setTheme] = useState('general');
+  const [selectedThemes, setSelectedThemes] = useState<string[]>([]);
   const [timeLimit, setTimeLimit] = useState(15);
   const [savedQuizzes, setSavedQuizzes] = useState<SavedQuiz[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
 
   useEffect(() => {
-    if (Object.keys(themes).length > 0 && !themes['general']) {
-      setTheme(Object.keys(themes)[0]);
-    }
-
     const stored = localStorage.getItem('saved_quizzes');
     if (stored) {
       try {
@@ -35,23 +35,40 @@ export default function CreateQuiz() {
         localStorage.removeItem('saved_quizzes');
       }
     }
-  }, [themes]);
+  }, []);
 
-  const createRoom = async (quizData: { timeLimit: number, theme: string, name: string, description: string }) => {
+  const toggleTheme = (themeId: string) => {
+    setSelectedThemes(prev => 
+      prev.includes(themeId) 
+        ? prev.filter(id => id !== themeId)
+        : [...prev, themeId]
+    );
+  };
+
+  const createRoom = async (quizData: { timeLimit: number, selectedThemes: string[], name: string, description: string }) => {
     try {
-      const { getDocs, query, collection, where } = await import('firebase/firestore');
-      const { db } = await import('../lib/firebase');
+      let allQuestions: Question[] = [];
       
-      // Fetch questions for the theme
-      const questionsSnap = await getDocs(query(collection(db, 'questions'), where('theme', '==', quizData.theme)));
-      const questions = questionsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Question));
+      // Fetch questions for each selected theme
+      for (const themeId of quizData.selectedThemes) {
+        const themeDoc = await getDoc(doc(db, 'themes', themeId));
+        if (themeDoc.exists()) {
+          const themeData = themeDoc.data() as Theme;
+          if (themeData.questions) {
+            allQuestions = [...allQuestions, ...themeData.questions];
+          }
+        }
+      }
+
+      // Shuffle questions
+      allQuestions = allQuestions.sort(() => Math.random() - 0.5);
 
       const code = await QuizService.createRoom({
         name: quizData.name,
         description: quizData.description,
-        theme: quizData.theme,
+        theme: quizData.selectedThemes.join(', '),
         timeLimit: quizData.timeLimit,
-        questions: questions.length > 0 ? questions : []
+        questions: allQuestions.length > 0 ? allQuestions : []
       });
       
       navigate(`/host/${code}`);
@@ -62,13 +79,13 @@ export default function CreateQuiz() {
 
   const handleSaveAndLaunch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || selectedThemes.length === 0) return;
 
     const newQuiz: SavedQuiz = {
       id: Date.now().toString(),
       name,
       description,
-      theme,
+      theme: selectedThemes[0], // For backward compatibility in history
       timeLimit,
       createdAt: Date.now(),
     };
@@ -77,50 +94,161 @@ export default function CreateQuiz() {
     setSavedQuizzes(updatedQuizzes);
     localStorage.setItem('saved_quizzes', JSON.stringify(updatedQuizzes));
 
-    createRoom({ timeLimit, theme, name, description });
+    createRoom({ timeLimit, selectedThemes, name, description });
   };
 
   const handleLaunchSaved = (quiz: SavedQuiz) => {
     createRoom({ 
       timeLimit: quiz.timeLimit, 
-      theme: quiz.theme,
+      selectedThemes: [quiz.theme],
       name: quiz.name,
       description: quiz.description
     });
   };
 
-
-  const handleDeleteSaved = (id: string | number) => {
+  const handleDeleteSaved = (id: string) => {
     const updated = savedQuizzes.filter(q => q.id !== id);
     setSavedQuizzes(updated);
     localStorage.setItem('saved_quizzes', JSON.stringify(updated));
   };
 
+  // Group themes by category if available, or just list them
+  const categorizedThemes = Object.entries(themes).reduce((acc, [id, t]: [string, any]) => {
+    const category = t.category || 'Général';
+    if (!acc[category]) acc[category] = [];
+    acc[category].push({ id, ...t });
+    return acc;
+  }, {} as Record<string, any[]>);
+
   return (
-    <div className="h-full bg-transparent text-white p-4 overflow-hidden flex flex-col">
-      <div className="max-w-3xl mx-auto w-full flex flex-col h-full">
-        <div className="flex-1 flex flex-col justify-center min-h-0 py-2">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="w-full"
-          >
-            <QuizForm
-              name={name}
-              setName={setName}
-              description={description}
-              setDescription={setDescription}
-              theme={theme}
-              setTheme={setTheme}
-              timeLimit={timeLimit}
-              setTimeLimit={setTimeLimit}
-              themes={themes}
-              onSubmit={handleSaveAndLaunch}
-              onOpenHistory={() => setIsHistoryOpen(true)}
-            />
-          </motion.div>
+    <PageLayout maxWidth="max-w-7xl">
+      <PageHeader
+        title="CRÉATION DE QUIZ"
+        subtitle="Configurez votre session de jeu"
+        icon={<Settings className="w-8 h-8 text-fuchsia-500" />}
+        actions={
+          <Button onClick={() => setIsHistoryOpen(true)} variant="secondary" className="gap-2">
+            <History className="w-5 h-5 text-fuchsia-400" />
+            Historique
+          </Button>
+        }
+      />
+
+      <form onSubmit={handleSaveAndLaunch} className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Left Column: Basic Info */}
+        <div className="space-y-6">
+          <Card className="p-8 space-y-6">
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest ml-1">Nom du quiz</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                  placeholder="Ex: Le Grand Choc des Cerveaux"
+                  className="w-full bg-zinc-800/50 border border-zinc-700/50 rounded-2xl px-6 py-4 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50 transition-all placeholder:text-zinc-400"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest ml-1">Description (optionnelle)</label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Dites à vos spectateurs ce qui les attend..."
+                  className="w-full bg-zinc-800/50 border border-zinc-700/50 rounded-2xl px-6 py-4 text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50 transition-all resize-none h-32 placeholder:text-zinc-600"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest ml-1">Temps par Question</label>
+                <div className="grid grid-cols-4 gap-3">
+                  {[10, 15, 20, 30].map(time => (
+                    <button
+                      key={time}
+                      type="button"
+                      onClick={() => setTimeLimit(time)}
+                      className={`py-4 rounded-2xl font-black font-mono transition-all ${timeLimit === time ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/30 ring-2 ring-violet-400/20' : 'bg-zinc-800/50 text-zinc-500 border border-zinc-700/50 hover:border-violet-500/30'}`}
+                    >
+                      {time}s
+                    </button>
+                  ))}
+                </div>
+              </div>
+          </Card>
         </div>
-      </div>
+
+        {/* Right Column: Themes Accordion */}
+        <div className="space-y-6">
+          <Card className="p-8">
+            <div className="flex items-center justify-between mb-6">
+              <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest ml-1">Thèmes ({selectedThemes.length} sélectionnés)</label>
+              {selectedThemes.length > 0 && (
+                <button 
+                  type="button"
+                  onClick={() => setSelectedThemes([])}
+                  className="text-[10px] font-bold text-fuchsia-400 hover:text-fuchsia-300 uppercase tracking-widest"
+                >
+                  Tout effacer
+                </button>
+              )}
+            </div>
+
+              <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                {Object.entries(categorizedThemes).map(([category, themeList]) => (
+                  <div key={category} className="border border-zinc-800 rounded-2xl overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setExpandedCategory(expandedCategory === category ? null : category)}
+                      className="w-full flex items-center justify-between p-4 bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors"
+                    >
+                      <span className="font-bold text-sm uppercase tracking-wider">{category}</span>
+                      <ChevronDown className={`w-5 h-5 transition-transform ${expandedCategory === category ? 'rotate-180' : ''}`} />
+                    </button>
+                    <AnimatePresence>
+                      {expandedCategory === category && (
+                        <motion.div
+                          initial={{ height: 0 }}
+                          animate={{ height: 'auto' }}
+                          exit={{ height: 0 }}
+                          className="overflow-hidden bg-zinc-900/30"
+                        >
+                          <div className="p-4 grid grid-cols-1 gap-2">
+                            {themeList.map((t) => (
+                              <button
+                                key={t.id}
+                                type="button"
+                                onClick={() => toggleTheme(t.id)}
+                                className={`flex items-center justify-between p-3 rounded-xl transition-all border ${
+                                  selectedThemes.includes(t.id)
+                                    ? 'bg-violet-600/20 border-violet-500 text-white shadow-lg shadow-violet-600/10'
+                                    : 'bg-zinc-800/20 border-zinc-700/50 text-zinc-400 hover:border-zinc-600'
+                                }`}
+                              >
+                                <span className="text-sm font-medium">{t.name}</span>
+                                {selectedThemes.includes(t.id) && <Check className="w-4 h-4 text-violet-400" />}
+                              </button>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            <Button
+              type="submit"
+              disabled={!name.trim() || selectedThemes.length === 0}
+              className="w-full py-6 text-lg"
+              size="lg"
+            >
+              <Play className="w-6 h-6 fill-current" />
+              Lancer le Quiz
+            </Button>
+          </div>
+        </form>
 
       {/* History Modal */}
       <AnimatePresence>
@@ -137,9 +265,9 @@ export default function CreateQuiz() {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-2xl bg-zinc-900 border border-zinc-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
+              className="relative w-full max-w-2xl bg-zinc-900 border border-zinc-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[80%]"
             >
-              <div className="p-6 border-bottom border-zinc-800 flex items-center justify-between">
+              <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
                 <h2 className="text-2xl font-bold">Historique des Quiz</h2>
                 <button
                   onClick={() => setIsHistoryOpen(false)}
@@ -160,6 +288,7 @@ export default function CreateQuiz() {
           </div>
         )}
       </AnimatePresence>
-    </div>
+    </PageLayout>
   );
 }
+

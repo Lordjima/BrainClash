@@ -41,7 +41,7 @@ export default function ChestOpening({ chest, onClose, onReward, allShopItems }:
   };
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 backdrop-blur-2xl">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 backdrop-blur-2xl overflow-y-auto custom-scrollbar p-6">
       <AnimatePresence>
         {phase === 'idle' && (
           <motion.div

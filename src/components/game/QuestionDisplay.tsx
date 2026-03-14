@@ -31,16 +31,16 @@ export default function QuestionDisplay({
             exit={{ opacity: 0, scale: 0.9 }}
             className="grid grid-cols-1 gap-3"
           >
-            {question.options.map((opt, i) => (
+            {question?.options?.map((opt, i) => (
               <button
                 key={i}
                 onClick={() => onAnswer(i)}
-                className="bg-zinc-900 hover:bg-zinc-800 border-2 border-zinc-800 hover:border-fuchsia-500 transition-all p-3 rounded-xl text-base font-bold text-left flex items-center gap-4 active:scale-95"
+                className="bg-zinc-900/50 hover:bg-fuchsia-500/10 border-2 border-zinc-800 hover:border-fuchsia-500/50 transition-all p-4 rounded-2xl text-lg font-bold text-left flex items-center gap-4 active:scale-95 group"
               >
-                <div className="w-8 h-8 rounded-xl bg-zinc-800 flex items-center justify-center font-mono text-zinc-400 shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center font-mono text-zinc-400 shrink-0 group-hover:bg-fuchsia-500 group-hover:text-white transition-colors">
                   {i + 1}
                 </div>
-                {opt}
+                <span className="text-zinc-300 group-hover:text-white transition-colors">{opt}</span>
               </button>
             ))}
           </motion.div>
@@ -70,7 +70,7 @@ export default function QuestionDisplay({
               <>
                 <XCircle className="w-20 h-20 text-zinc-600 mx-auto mb-4" />
                 <h3 className="text-2xl font-bold mb-2 text-zinc-400">Temps écoulé !</h3>
-                <p className="text-zinc-400 text-sm">La bonne réponse était : <strong className="text-white">{question.options[question.correctOptionIndex]}</strong></p>
+                <p className="text-zinc-400 text-sm">La bonne réponse était : <strong className="text-white">{question?.options?.[question?.correctOptionIndex]}</strong></p>
               </>
             ) : isCorrect ? (
               <>
@@ -88,7 +88,7 @@ export default function QuestionDisplay({
               <>
                 <XCircle className="w-20 h-20 text-red-500 mx-auto mb-4" />
                 <h3 className="text-2xl font-bold mb-2 text-red-400">Mauvaise réponse...</h3>
-                <p className="text-zinc-400 text-sm">La bonne réponse était : <strong className="text-white">{question.options[question.correctOptionIndex]}</strong></p>
+                <p className="text-zinc-400 text-sm">La bonne réponse était : <strong className="text-white">{question?.options?.[question?.correctOptionIndex]}</strong></p>
               </>
             )}
           </motion.div>
