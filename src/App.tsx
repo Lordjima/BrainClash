@@ -78,7 +78,7 @@ export default function App() {
             <Routes>
               {/* Overlay doesn't need sidebar/layout */}
               <Route path="/overlay/:id" element={<Overlay />} />
-              <Route path="/callback" element={<AuthCallback />} />
+              <Route path="/auth/twitch/callback" element={<AuthCallback />} />
               
               {/* All other routes */}
               <Route path="*" element={
