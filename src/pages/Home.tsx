@@ -284,22 +284,6 @@ export default function Home() {
                     Créer un salon
                   </button>
 
-                  {!twitchUser && (
-                    <button
-                      onClick={() => {
-                        const clientId = '47anvp07hr6dfxl1ucsscnjavs5j2e';
-                        const redirectUri = `${window.location.origin}/auth/twitch/callback`;
-                        const scope = 'user:read:email';
-                        const url = `https://id.twitch.tv/oauth2/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${encodeURIComponent(scope)}`;
-                        window.open(url, 'oauth_popup', 'width=600,height=700');
-                      }}
-                      className="w-full max-w-xs bg-fuchsia-600 hover:bg-fuchsia-500 text-white py-4 rounded-2xl font-black text-lg transition-all active:scale-95 uppercase italic flex items-center justify-center gap-3"
-                    >
-                      <User className="w-5 h-5" />
-                      Connexion Twitch
-                    </button>
-                  )}
-
                   {error && (
                     <motion.div 
                       initial={{ opacity: 0, y: -10 }}
