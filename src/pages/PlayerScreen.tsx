@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { socket } from '../lib/socket';
+import { doc, onSnapshot, updateDoc, arrayUnion, increment } from 'firebase/firestore';
+import { db, auth } from '../lib/firebase';
 import { RoomState, Player } from '../types';
+import { QuizService } from '../services/QuizService';
 import { motion, AnimatePresence } from 'motion/react';
 import type { GlobalLeaderboardEntry } from '../types';
 
@@ -20,46 +22,31 @@ export default function PlayerScreen() {
   const [room, setRoom] = useState<RoomState | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [timeLeft, setTimeLeft] = useState(0);
-  const [timeOffset, setTimeOffset] = useState(0);
   const [profile, setProfile] = useState<GlobalLeaderboardEntry | null>(null);
   const [activeMalus, setActiveMalus] = useState<{ type: string, source: string } | null>(null);
 
+  const userId = auth.currentUser?.uid;
+
   useEffect(() => {
-    const storedUser = localStorage.getItem('twitch_user');
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        socket.emit('get_profile', parsedUser.display_name);
-      } catch (err) {
-        console.error('Error parsing twitch_user from localStorage:', err);
-        localStorage.removeItem('twitch_user');
+    if (!id) return;
+    const roomRef = doc(db, 'rooms', id);
+    const unsubscribe = onSnapshot(roomRef, (doc) => {
+      if (doc.exists()) {
+        const updatedRoom = doc.data() as RoomState;
+        setRoom(updatedRoom);
+        
+        if (updatedRoom.status === 'active' && !updatedRoom.showAnswer) {
+          const me = userId ? updatedRoom.players[userId] : null;
+          if (me && !me.hasAnswered) {
+            setSelectedAnswer(null);
+          }
+        }
+      } else {
+        navigate('/');
       }
-    }
-
-    socket.on('profile_data', (data: GlobalLeaderboardEntry) => {
-      setProfile(data);
     });
-
-    socket.on('item_effect', ({ attacker, itemId, effect }) => {
-      setActiveMalus({ type: effect, source: attacker });
-      setTimeout(() => setActiveMalus(null), 5000);
-    });
-
-    socket.on('item_blocked', ({ attacker, itemId }) => {
-      alert(`Bouclier activé ! Vous avez paré l'attaque (${itemId}) de ${attacker}.`);
-    });
-
-    socket.on('item_used_success', ({ itemId, message }) => {
-      console.log(message);
-    });
-
-    return () => {
-      socket.off('profile_data');
-      socket.off('item_effect');
-      socket.off('item_blocked');
-      socket.off('item_used_success');
-    };
-  }, [id]);
+    return () => unsubscribe();
+  }, [id, userId, navigate]);
 
   useEffect(() => {
     if (!room || room.status !== 'active' || !room.questionStartTime || room.showAnswer) return;
@@ -69,162 +56,20 @@ export default function PlayerScreen() {
     const startTime = room.questionStartTime;
 
     const interval = setInterval(() => {
-      const now = Date.now() - timeOffset;
+      const now = Date.now();
       const elapsed = now - startTime;
       const remaining = Math.max(0, timeLimitMs - elapsed);
       setTimeLeft(remaining);
     }, 100);
 
     return () => clearInterval(interval);
-  }, [room?.status, room?.questionStartTime, room?.showAnswer, room?.currentQuestionIndex, timeOffset]);
-
-  useEffect(() => {
-    socket.emit('get_room', id);
-
-    socket.on('room_update', (updatedRoom: RoomState) => {
-      if (updatedRoom.serverTime) {
-        setTimeOffset(Date.now() - updatedRoom.serverTime);
-      }
-      setRoom(updatedRoom);
-      
-      if (updatedRoom.status === 'active' && !updatedRoom.showAnswer) {
-        const me = updatedRoom.players[socket.id];
-        if (me && !me.hasAnswered) {
-          setSelectedAnswer(null);
-        }
-      }
-    });
-
-    socket.on('player_joined', (player: Player) => {
-      setRoom(prev => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          players: { ...prev.players, [player.id]: player }
-        };
-      });
-    });
-
-    socket.on('player_answered', ({ playerId, hasAnswered }) => {
-      setRoom(prev => {
-        if (!prev) return null;
-        const player = prev.players[playerId];
-        if (!player) return prev;
-        return {
-          ...prev,
-          players: {
-            ...prev.players,
-            [playerId]: { ...player, hasAnswered }
-          }
-        };
-      });
-    });
-
-    socket.on('game_started', ({ status, currentQuestionIndex, questionStartTime, serverTime }) => {
-      if (serverTime) setTimeOffset(Date.now() - serverTime);
-      setRoom(prev => {
-        if (!prev) return null;
-        const newPlayers = { ...prev.players };
-        Object.keys(newPlayers).forEach(id => {
-          newPlayers[id] = { ...newPlayers[id], hasAnswered: false, score: 0 };
-        });
-        return {
-          ...prev,
-          status,
-          currentQuestionIndex,
-          questionStartTime,
-          showAnswer: false,
-          players: newPlayers
-        };
-      });
-      setSelectedAnswer(null);
-    });
-
-    socket.on('question_started', ({ currentQuestionIndex, questionStartTime, serverTime }) => {
-      if (serverTime) setTimeOffset(Date.now() - serverTime);
-      setRoom(prev => {
-        if (!prev) return null;
-        const newPlayers = { ...prev.players };
-        Object.keys(newPlayers).forEach(id => {
-          newPlayers[id] = { ...newPlayers[id], hasAnswered: false, isCorrect: undefined, answerTime: undefined };
-        });
-        return {
-          ...prev,
-          currentQuestionIndex,
-          questionStartTime,
-          showAnswer: false,
-          players: newPlayers
-        };
-      });
-      setSelectedAnswer(null);
-    });
-
-    socket.on('answer_revealed', ({ correctOptionIndex, players }) => {
-      setRoom(prev => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          showAnswer: true,
-          players: players
-        };
-      });
-    });
-
-    socket.on('game_finished', ({ status, players }) => {
-      setRoom(prev => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          status,
-          players
-        };
-      });
-    });
-
-    socket.on('room_restarted', ({ status, players }) => {
-      setRoom(prev => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          status,
-          currentQuestionIndex: 0,
-          questionStartTime: null,
-          showAnswer: false,
-          players
-        };
-      });
-      setSelectedAnswer(null);
-    });
-
-    socket.on('error', (msg) => {
-      alert(msg);
-      navigate('/');
-    });
-
-    socket.on('room_closed', () => {
-      alert('Le streamer a fermé le salon.');
-      navigate('/');
-    });
-
-    return () => {
-      socket.off('room_update');
-      socket.off('player_joined');
-      socket.off('player_answered');
-      socket.off('game_started');
-      socket.off('question_started');
-      socket.off('answer_revealed');
-      socket.off('game_finished');
-      socket.off('room_restarted');
-      socket.off('error');
-      socket.off('room_closed');
-    };
-  }, [id, navigate]);
+  }, [room?.status, room?.questionStartTime, room?.showAnswer, room?.currentQuestionIndex]);
 
   if (!room) {
     return <div className="min-h-screen bg-transparent text-white flex items-center justify-center">Connexion...</div>;
   }
 
-  const me = room.players[socket.id];
+  const me = userId ? room.players[userId] : null;
   if (!me) {
     return (
       <div className="min-h-screen bg-transparent text-white flex flex-col items-center justify-center p-6 text-center">
@@ -234,36 +79,20 @@ export default function PlayerScreen() {
     );
   }
 
-  const handleAnswer = (index: number) => {
-    if (selectedAnswer !== null || room.showAnswer) return;
+  const handleAnswer = async (index: number) => {
+    if (!id || !userId || selectedAnswer !== null || room.showAnswer) return;
     setSelectedAnswer(index);
-    socket.emit('submit_answer', { roomId: room.id, answerIndex: index });
+    await QuizService.submitAnswer(id, index);
   };
 
-  if (room.status === 'lobby') {
-    return <Lobby room={room} me={me} />;
-  }
-
-  if (room.status === 'finished') {
-    return <GameFinished room={room} me={me} onNavigateHome={() => navigate('/')} />;
-  }
+  const handleUseItem = async (itemId: string) => {
+    if (!id || !userId) return;
+    await QuizService.removeFromInventory(itemId);
+    // Add logic to trigger effect in the room
+    console.log(`Using item ${itemId}`);
+  };
 
   const currentQ = room.questions[room.currentQuestionIndex];
-  if (!currentQ) {
-    return (
-      <div className="min-h-screen bg-transparent text-white flex flex-col items-center justify-center p-4">
-        <h2 className="text-2xl font-bold mb-2">Aucune question trouvée</h2>
-        <p className="text-zinc-400 mb-8">Ce thème ne contient aucune question.</p>
-        <button 
-          onClick={() => navigate('/')} 
-          className="w-full max-w-md bg-zinc-800 hover:bg-zinc-700 text-white font-bold py-4 rounded-xl transition-colors"
-        >
-          Retour à l'accueil
-        </button>
-      </div>
-    );
-  }
-
   const isCorrect = selectedAnswer === currentQ.correctOptionIndex;
 
   let isFastest = false;
@@ -287,12 +116,6 @@ export default function PlayerScreen() {
       case 'seisme': return 'animate-shake';
       case 'inversion': return 'rotate-180 transition-transform duration-1000';
       default: return '';
-    }
-  };
-
-  const handleUseItem = (itemId: string) => {
-    if (profile && profile.inventory.includes(itemId)) {
-      socket.emit('use_item', { roomId: id, username: me.username, itemId });
     }
   };
 
@@ -325,25 +148,31 @@ export default function PlayerScreen() {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col lg:flex-row gap-4 max-w-7xl mx-auto w-full overflow-y-auto lg:overflow-hidden custom-scrollbar">
+      <div className="flex-1 flex flex-col lg:flex-row gap-8 max-w-7xl mx-auto w-full overflow-y-auto lg:overflow-hidden custom-scrollbar justify-center items-center">
         
         {/* Left Column: Live Status */}
-        <div className="lg:w-1/4 order-2 lg:order-1 flex flex-col gap-4 overflow-hidden">
+        <div className="lg:w-1/4 order-2 lg:order-1 flex flex-col gap-4 w-full lg:h-full justify-center">
           <PlayerStatus players={sortedPlayers} />
         </div>
 
         {/* Center Column: Question, Answers, Timer */}
-        <div className="lg:w-2/4 order-1 lg:order-2 flex flex-col overflow-hidden">
-          <div className="mb-4 text-center shrink-0">
-            <span className="text-fuchsia-400 font-bold uppercase tracking-widest text-xs mb-2 block">
-              Question {room.currentQuestionIndex + 1}
-            </span>
-            <h2 className="text-2xl font-bold text-white leading-tight">
+        <div className="lg:w-2/4 order-1 lg:order-2 flex flex-col w-full lg:h-full justify-center py-8">
+          <div className="mb-12 text-center shrink-0">
+            <motion.div
+              initial={{ y: -10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              className="inline-block"
+            >
+              <span className="text-fuchsia-400 font-black uppercase tracking-[0.4em] text-[10px] mb-4 block bg-fuchsia-500/5 px-4 py-1 rounded-full border border-fuchsia-500/10">
+                Question {room.currentQuestionIndex + 1}
+              </span>
+            </motion.div>
+            <h2 className="text-4xl md:text-5xl font-black text-white leading-[0.9] tracking-tighter uppercase italic">
               {currentQ.text}
             </h2>
           </div>
 
-          <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
+          <div className="max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
             <QuestionDisplay 
               question={currentQ}
               selectedAnswer={selectedAnswer}
@@ -355,18 +184,17 @@ export default function PlayerScreen() {
           </div>
 
           {room.status === 'active' && !room.showAnswer && (
-            <div className="mt-4 shrink-0">
+            <div className="mt-12 shrink-0">
               <Timer timeLeft={timeLeft} timeLimit={currentQ.timeLimit} />
             </div>
           )}
         </div>
 
         {/* Right Column: Temporary Leaderboard & Inventory */}
-        <div className="lg:w-1/4 order-3 lg:order-3 flex flex-col gap-4 pb-8 lg:pb-0 overflow-hidden">
-          <Leaderboard players={sortedPlayers} meId={socket.id} myRank={myRank} />
+        <div className="lg:w-1/4 order-3 lg:order-3 flex flex-col gap-4 pb-8 lg:pb-0 w-full lg:h-full justify-center">
+          <Leaderboard players={sortedPlayers} meId={userId || ''} myRank={myRank} />
           <Inventory inventory={profile?.inventory || []} onUseItem={handleUseItem} />
         </div>
-
       </div>
     </div>
   );

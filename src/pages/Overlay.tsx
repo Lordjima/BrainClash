@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
-
-import { socket } from '../lib/socket';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 import { RoomState, Player } from '../types';
 import Logo from '../components/Logo';
 
@@ -11,145 +11,26 @@ export default function Overlay() {
   const { id } = useParams<{ id: string }>();
   const [room, setRoom] = useState<RoomState | null>(null);
   const [timeLeft, setTimeLeft] = useState(0);
-  const [timeOffset, setTimeOffset] = useState(0);
   const [nextQuestionTimeLeft, setNextQuestionTimeLeft] = useState(10000);
   const [itemNotification, setItemNotification] = useState<{ username: string, itemId: string } | null>(null);
 
   useEffect(() => {
-    socket.emit('join_observer', id);
-
-    socket.on('room_update', (updatedRoom: RoomState) => {
-      if (updatedRoom.serverTime) {
-        setTimeOffset(Date.now() - updatedRoom.serverTime);
+    if (!id) return;
+    const roomRef = doc(db, 'rooms', id);
+    const unsubscribe = onSnapshot(roomRef, (doc) => {
+      if (doc.exists()) {
+        const updatedRoom = doc.data() as RoomState;
+        setRoom(updatedRoom);
+        if (!updatedRoom.showAnswer) {
+          setNextQuestionTimeLeft(10000);
+        } else {
+          setNextQuestionTimeLeft(5000); // Match server's 5s delay
+        }
+      } else {
+        setRoom(null);
       }
-      setRoom(updatedRoom);
-      if (!updatedRoom.showAnswer) {
-        setNextQuestionTimeLeft(10000);
-      }
     });
-
-    socket.on('player_joined', (player: Player) => {
-      setRoom(prev => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          players: { ...prev.players, [player.id]: player }
-        };
-      });
-    });
-
-    socket.on('player_answered', ({ playerId, hasAnswered }) => {
-      setRoom(prev => {
-        if (!prev) return null;
-        const player = prev.players[playerId];
-        if (!player) return prev;
-        return {
-          ...prev,
-          players: {
-            ...prev.players,
-            [playerId]: { ...player, hasAnswered }
-          }
-        };
-      });
-    });
-
-    socket.on('game_started', ({ status, currentQuestionIndex, questionStartTime, serverTime }) => {
-      if (serverTime) setTimeOffset(Date.now() - serverTime);
-      setRoom(prev => {
-        if (!prev) return null;
-        const newPlayers = { ...prev.players };
-        Object.keys(newPlayers).forEach(id => {
-          newPlayers[id] = { ...newPlayers[id], hasAnswered: false, score: 0 };
-        });
-        return {
-          ...prev,
-          status,
-          currentQuestionIndex,
-          questionStartTime,
-          showAnswer: false,
-          players: newPlayers
-        };
-      });
-      setNextQuestionTimeLeft(10000);
-    });
-
-    socket.on('question_started', ({ currentQuestionIndex, questionStartTime, serverTime }) => {
-      if (serverTime) setTimeOffset(Date.now() - serverTime);
-      setRoom(prev => {
-        if (!prev) return null;
-        const newPlayers = { ...prev.players };
-        Object.keys(newPlayers).forEach(id => {
-          newPlayers[id] = { ...newPlayers[id], hasAnswered: false, isCorrect: undefined, answerTime: undefined };
-        });
-        return {
-          ...prev,
-          currentQuestionIndex,
-          questionStartTime,
-          showAnswer: false,
-          players: newPlayers
-        };
-      });
-      setNextQuestionTimeLeft(10000);
-    });
-
-    socket.on('answer_revealed', ({ correctOptionIndex, players }) => {
-      setRoom(prev => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          showAnswer: true,
-          players: players
-        };
-      });
-      setNextQuestionTimeLeft(5000); // Match server's 5s delay
-    });
-
-    socket.on('game_finished', ({ status, players }) => {
-      setRoom(prev => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          status,
-          players
-        };
-      });
-    });
-
-    socket.on('room_restarted', ({ status, players }) => {
-      setRoom(prev => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          status,
-          currentQuestionIndex: 0,
-          questionStartTime: null,
-          showAnswer: false,
-          players
-        };
-      });
-    });
-
-    socket.on('room_closed', () => {
-      setRoom(null);
-    });
-
-    socket.on('item_used', ({ username, itemId }) => {
-      setItemNotification({ username, itemId });
-      setTimeout(() => setItemNotification(null), 4000);
-    });
-
-    return () => {
-      socket.off('room_update');
-      socket.off('player_joined');
-      socket.off('player_answered');
-      socket.off('game_started');
-      socket.off('question_started');
-      socket.off('answer_revealed');
-      socket.off('game_finished');
-      socket.off('room_restarted');
-      socket.off('room_closed');
-      socket.off('item_used');
-    };
+    return () => unsubscribe();
   }, [id]);
 
   useEffect(() => {
@@ -157,7 +38,7 @@ export default function Overlay() {
     if (room?.status === 'active' && !room.showAnswer && room.questionStartTime) {
       const currentQ = room.questions[room.currentQuestionIndex];
       timer = setInterval(() => {
-        const now = Date.now() - timeOffset;
+        const now = Date.now();
         const elapsed = now - room.questionStartTime!;
         const remaining = Math.max(0, currentQ.timeLimit * 1000 - elapsed);
         setTimeLeft(remaining);
@@ -177,7 +58,7 @@ export default function Overlay() {
     }
 
     return () => clearInterval(timer);
-  }, [room?.status, room?.showAnswer, room?.questionStartTime, room?.currentQuestionIndex, room?.questions, timeOffset]);
+  }, [room?.status, room?.showAnswer, room?.questionStartTime, room?.currentQuestionIndex, room?.questions]);
 
   useEffect(() => {
     if (room?.showAnswer) {

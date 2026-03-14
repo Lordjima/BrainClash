@@ -1,43 +1,55 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { socket } from '../lib/socket';
-import { Check, X, ArrowLeft, Inbox, User } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { collection, onSnapshot, doc, deleteDoc, addDoc } from 'firebase/firestore';
+import { db, auth } from '../lib/firebase';
+import { Check, X, Inbox, User } from 'lucide-react';
 import { SubmittedQuestion, Theme } from '../types';
-import Logo from '../components/Logo';
 
 export default function ReviewQuestions() {
-  const navigate = useNavigate();
   const [questions, setQuestions] = useState<SubmittedQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [themes, setThemes] = useState<Record<string, Theme>>({});
 
   useEffect(() => {
-    socket.emit('get_pending_questions');
-    socket.emit('get_themes');
-
-    socket.on('pending_questions_list', (list: SubmittedQuestion[]) => {
+    const unsubscribeQuestions = onSnapshot(collection(db, 'pendingQuestions'), (snapshot) => {
+      const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SubmittedQuestion));
       setQuestions(list);
+      setLoading(false);
+    }, (err) => {
+      console.error('Pending questions error:', err);
       setLoading(false);
     });
 
-    socket.on('themes_list', (list) => {
-      setThemes(list);
+    const unsubscribeThemes = onSnapshot(collection(db, 'themes'), (snapshot) => {
+      const themesMap: Record<string, Theme> = {};
+      snapshot.docs.forEach(doc => {
+        const theme = doc.data() as Theme;
+        themesMap[doc.id] = theme;
+      });
+      setThemes(themesMap);
+    }, (err) => {
+      console.error('Themes error:', err);
     });
 
     return () => {
-      socket.off('pending_questions_list');
-      socket.off('themes_list');
+      unsubscribeQuestions();
+      unsubscribeThemes();
     };
   }, []);
 
-  const handleReview = (id: string, action: 'approve' | 'reject', theme: string) => {
-    const storedUser = localStorage.getItem('twitch_user');
-    if (!storedUser) return;
-    const user = JSON.parse(storedUser);
+  const handleReview = async (id: string, action: 'approve' | 'reject', theme: string) => {
+    const user = auth.currentUser;
+    if (!user) return;
     
-    socket.emit('review_question', { id, action, theme, username: user.display_name });
-    // Optimistic update
-    setQuestions(prev => prev.filter(q => q.id !== id));
+    if (action === 'approve') {
+      // Add to approved questions collection
+      const question = questions.find(q => q.id === id);
+      if (question) {
+        await addDoc(collection(db, 'questions'), { ...question, approvedBy: user.displayName || 'Admin' });
+      }
+    }
+    
+    // Delete from pending
+    await deleteDoc(doc(db, 'pendingQuestions', id));
   };
 
   return (

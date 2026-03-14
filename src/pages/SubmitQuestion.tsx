@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { socket } from '../lib/socket';
-import { Send, ArrowLeft, CheckCircle } from 'lucide-react';
-import { Theme } from '../types';
-import Logo from '../components/Logo';
-
+import { collection, addDoc } from 'firebase/firestore';
+import { db, auth } from '../lib/firebase';
+import { Send, CheckCircle } from 'lucide-react';
 import { useData } from '../DataContext';
 
 export default function SubmitQuestion() {
@@ -23,18 +21,7 @@ export default function SubmitQuestion() {
     }
   }, [themes]);
 
-  const getTwitchUser = () => {
-    const stored = localStorage.getItem('twitch_user');
-    if (!stored) return null;
-    try {
-      return JSON.parse(stored);
-    } catch (err) {
-      localStorage.removeItem('twitch_user');
-      return null;
-    }
-  };
-
-  const twitchUser = getTwitchUser();
+  const user = auth.currentUser;
 
   const handleOptionChange = (index: number, value: string) => {
     const newOptions = [...options];
@@ -42,9 +29,9 @@ export default function SubmitQuestion() {
     setOptions(newOptions);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!twitchUser) {
+    if (!user) {
       alert('Vous devez être connecté pour soumettre une question.');
       return;
     }
@@ -59,12 +46,12 @@ export default function SubmitQuestion() {
       return;
     }
 
-    socket.emit('submit_question', {
+    await addDoc(collection(db, 'pendingQuestions'), {
       text,
       options,
       correctOptionIndex,
       theme: theme === 'custom' ? customTheme.trim() : theme,
-      author: twitchUser.display_name
+      author: user.displayName || 'Anonyme'
     });
 
     setSubmitted(true);
@@ -78,11 +65,11 @@ export default function SubmitQuestion() {
     }, 3000);
   };
 
-  if (!twitchUser) {
+  if (!user) {
     return (
       <div className="min-h-screen bg-transparent text-white flex flex-col items-center justify-center p-6 text-center">
         <h2 className="text-2xl font-bold mb-4">Connexion requise</h2>
-        <p className="text-zinc-400 mb-8">Vous devez être connecté avec Twitch pour proposer une question.</p>
+        <p className="text-zinc-400 mb-8">Vous devez être connecté pour proposer une question.</p>
         <Link to="/" className="bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 px-6 rounded-xl transition-colors">
           Retour à l'accueil
         </Link>

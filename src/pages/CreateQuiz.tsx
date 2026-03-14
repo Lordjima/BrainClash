@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { socket } from '../lib/socket';
-import { SavedQuiz } from '../types';
+import { collection, addDoc, doc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { SavedQuiz, Question } from '../types';
 import { useData } from '../DataContext';
 import QuizForm from '../components/quiz/QuizForm';
 import QuizHistory from '../components/quiz/QuizHistory';
 import { motion, AnimatePresence } from 'motion/react';
 import { X } from 'lucide-react';
+
+import { QuizService } from '../services/QuizService';
 
 export default function CreateQuiz() {
   const navigate = useNavigate();
@@ -32,16 +35,30 @@ export default function CreateQuiz() {
         localStorage.removeItem('saved_quizzes');
       }
     }
+  }, [themes]);
 
-    const handleRoomCreated = (roomId: string) => {
-      navigate(`/host/${roomId}`);
-    };
+  const createRoom = async (quizData: { timeLimit: number, theme: string, name: string, description: string }) => {
+    try {
+      const { getDocs, query, collection, where } = await import('firebase/firestore');
+      const { db } = await import('../lib/firebase');
+      
+      // Fetch questions for the theme
+      const questionsSnap = await getDocs(query(collection(db, 'questions'), where('theme', '==', quizData.theme)));
+      const questions = questionsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Question));
 
-    socket.on('room_created', handleRoomCreated);
-    return () => {
-      socket.off('room_created', handleRoomCreated);
-    };
-  }, [navigate, themes]);
+      const code = await QuizService.createRoom({
+        name: quizData.name,
+        description: quizData.description,
+        theme: quizData.theme,
+        timeLimit: quizData.timeLimit,
+        questions: questions.length > 0 ? questions : []
+      });
+      
+      navigate(`/host/${code}`);
+    } catch (err) {
+      console.error('Error creating room:', err);
+    }
+  };
 
   const handleSaveAndLaunch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,17 +77,18 @@ export default function CreateQuiz() {
     setSavedQuizzes(updatedQuizzes);
     localStorage.setItem('saved_quizzes', JSON.stringify(updatedQuizzes));
 
-    socket.emit('create_room', { timeLimit, theme, name, description });
+    createRoom({ timeLimit, theme, name, description });
   };
 
   const handleLaunchSaved = (quiz: SavedQuiz) => {
-    socket.emit('create_room', { 
+    createRoom({ 
       timeLimit: quiz.timeLimit, 
       theme: quiz.theme,
       name: quiz.name,
       description: quiz.description
     });
   };
+
 
   const handleDeleteSaved = (id: string | number) => {
     const updated = savedQuizzes.filter(q => q.id !== id);

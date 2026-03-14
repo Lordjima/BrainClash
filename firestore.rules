@@ -1,0 +1,94 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: profiles
+    // Fields:
+    //   - username: string (required)
+    //   - role: string (optional, 'admin' for privileges)
+    //   - coins: number
+    //   - brainCoins: number
+    //   - level: number
+    //   - xp: number
+    //   - inventory: list
+    //
+    // Collection: rooms
+    // Fields:
+    //   - hostId: string (UID of the creator)
+    //   - status: string ('lobby', 'active', 'finished')
+    //
+    // Collection: pendingQuestions
+    // Fields:
+    //   - text: string
+    //   - theme: string
+    //   - author: string
+    //
+    // ===============================================================
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        // Check by email (if logged in with Google)
+        (request.auth.token != null && 
+         request.auth.token.email == "baptiste.louyot@gmail.com" && 
+         request.auth.token.email_verified == true) ||
+        // Check by Firestore document (for anonymous users with initialized profile)
+        (exists(/databases/$(database)/documents/profiles/$(request.auth.uid)) && 
+         (get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role == 'admin' ||
+          get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.username == 'JimaG4ming'))
+      );
+    }
+
+    // Profiles / Leaderboard
+    match /profiles/{userId} {
+      allow read: if true;
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+    }
+
+    // Rooms
+    match /rooms/{roomId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated(); 
+      allow delete: if isAuthenticated() && (resource.data.hostId == request.auth.uid || isAdmin());
+    }
+
+    // Questions
+    match /questions/{questionId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Pending Questions
+    match /pendingQuestions/{questionId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
+    }
+
+    // Themes, ShopItems, Badges, Chests
+    match /themes/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /shopItems/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /badges/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /chests/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /auctions/{id} { allow read: if true; allow write: if isAuthenticated(); }
+    
+    // Fallback for any other collection
+    match /{path=**} {
+      allow read, write: if isAdmin();
+    }
+  }
+}

@@ -2,16 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Home, LogOut, User, Coins, Shield, EyeOff, RefreshCcw, Star, Award, Zap, Heart, TrendingUp, ShoppingBag } from 'lucide-react';
 import Logo from '../components/Logo';
-import { socket } from '../lib/socket';
+import { doc, onSnapshot, updateDoc, increment } from 'firebase/firestore';
+import { db, auth } from '../lib/firebase';
 import { useData } from '../DataContext';
 import type { GlobalLeaderboardEntry, ShopItem, Badge } from '../types';
 import * as LucideIcons from 'lucide-react';
 
 export default function Profile() {
-  const { leaderboard, shopItems: allShopItems, userProfile } = useData();
+  const { leaderboard, shopItems: allShopItems, userProfile, badges: allBadges } = useData();
   const [user, setUser] = useState<any>(null);
-  const [profile, setProfile] = useState<GlobalLeaderboardEntry | null>(null);
-  const [allBadges, setAllBadges] = useState<Badge[]>([]);
   const [showPayPal, setShowPayPal] = useState(false);
   const [purchaseAmount, setPurchaseAmount] = useState(5);
 
@@ -21,40 +20,24 @@ export default function Profile() {
       try {
         const parsedUser = JSON.parse(storedUser);
         setUser(parsedUser);
-        socket.emit('get_profile', parsedUser.display_name);
       } catch (err) {
         console.error('Error parsing twitch_user from localStorage:', err);
         localStorage.removeItem('twitch_user');
       }
     }
-
-    socket.on('profile_data', (data: GlobalLeaderboardEntry) => {
-      setProfile(data);
-    });
-
-    socket.on('bootstrap_data', (data: { allBadges: Badge[] }) => {
-      if (data.allBadges) {
-        setAllBadges(data.allBadges);
-      }
-    });
-
-    socket.emit('request_bootstrap_data');
-
-    return () => {
-      socket.off('profile_data');
-      socket.off('bootstrap_data');
-    };
   }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('twitch_user');
     setUser(null);
-    setProfile(null);
   };
 
-  const handleToggleSub = () => {
-    if (user) {
-      socket.emit('toggle_sub', user.display_name);
+  const handleToggleSub = async () => {
+    if (userProfile && auth.currentUser) {
+      const profileRef = doc(db, 'profiles', auth.currentUser.uid);
+      await updateDoc(profileRef, {
+        is_sub: !userProfile.is_sub
+      });
     }
   };
 
@@ -63,13 +46,17 @@ export default function Profile() {
     return <Icon className={size} />;
   };
 
-  const handlePurchaseSuccess = () => {
-    if (user) {
-      socket.emit('add_brain_coins', { username: user.display_name, amount: purchaseAmount });
+  const handlePurchaseSuccess = async () => {
+    if (userProfile && auth.currentUser) {
+      const profileRef = doc(db, 'profiles', auth.currentUser.uid);
+      await updateDoc(profileRef, {
+        brainCoins: increment(purchaseAmount)
+      });
       setShowPayPal(false);
       alert(`Félicitations ! Vous avez reçu ${purchaseAmount} BrainCoins.`);
     }
   };
+
 
   return (
     <div className="h-full px-6 pb-6 bg-transparent overflow-y-auto custom-scrollbar">
@@ -90,14 +77,14 @@ export default function Profile() {
                     referrerPolicy="no-referrer"
                   />
                   <div className="absolute -bottom-2 -right-2 bg-purple-600 text-white text-[10px] font-black px-2 py-1 rounded-lg border-2 border-zinc-900">
-                    LVL {profile?.level || 1}
+                    LVL {userProfile?.level || 1}
                   </div>
                 </div>
 
                 <h2 className="text-2xl font-black mb-1 tracking-tight">{user.display_name}</h2>
                 <div className="flex items-center justify-center gap-2 mb-6">
-                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest ${profile?.is_sub ? 'bg-purple-500 text-white' : 'bg-zinc-800 text-zinc-500'}`}>
-                    {profile?.is_sub ? 'Abonné Premium' : 'Joueur Standard'}
+                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest ${userProfile?.is_sub ? 'bg-purple-500 text-white' : 'bg-zinc-800 text-zinc-500'}`}>
+                    {userProfile?.is_sub ? 'Abonné Premium' : 'Joueur Standard'}
                   </span>
                   <button onClick={handleToggleSub} className="text-[10px] font-bold text-zinc-600 hover:text-white transition-colors uppercase">
                     (Simuler)
@@ -109,12 +96,12 @@ export default function Profile() {
                   <div className="space-y-1.5">
                     <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-zinc-500">
                       <span>Expérience</span>
-                      <span>{profile?.xp || 0} / {(profile?.level || 1) * 1000}</span>
+                      <span>{userProfile?.xp || 0} / {(userProfile?.level || 1) * 1000}</span>
                     </div>
                     <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
                       <div 
                         className="h-full bg-purple-500 transition-all duration-1000" 
-                        style={{ width: `${((profile?.xp || 0) % 1000) / 10}%` }}
+                        style={{ width: `${((userProfile?.xp || 0) % 1000) / 10}%` }}
                       />
                     </div>
                   </div>
@@ -126,14 +113,14 @@ export default function Profile() {
                       <Coins className="w-4 h-4" />
                       <span className="text-[10px] font-black uppercase tracking-widest">Coins</span>
                     </div>
-                    <div className="text-xl font-black font-mono">{profile?.coins || 0}</div>
+                    <div className="text-xl font-black font-mono">{userProfile?.coins || 0}</div>
                   </div>
                   <div className="bg-zinc-950/50 border border-zinc-800 rounded-2xl p-3 text-left relative group">
                     <div className="flex items-center gap-2 text-fuchsia-400 mb-1">
                       <div className="w-4 h-4 bg-fuchsia-500 rounded-full flex items-center justify-center text-[8px] font-black text-white">B</div>
                       <span className="text-[10px] font-black uppercase tracking-widest">BrainCoins</span>
                     </div>
-                    <div className="text-xl font-black font-mono">{profile?.brainCoins || 0}</div>
+                    <div className="text-xl font-black font-mono">{userProfile?.brainCoins || 0}</div>
                     <button 
                       onClick={() => setShowPayPal(true)}
                       className="absolute -top-2 -right-2 w-6 h-6 bg-fuchsia-600 rounded-full flex items-center justify-center hover:scale-110 transition-transform shadow-lg shadow-fuchsia-600/50"
@@ -175,7 +162,7 @@ export default function Profile() {
             {allBadges.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 {allBadges.map(badge => {
-                  const isEarned = profile?.badges?.includes(badge.id);
+                  const isEarned = userProfile?.badges?.includes(badge.id);
                   return (
                     <div 
                       key={badge.id} 
@@ -212,23 +199,31 @@ export default function Profile() {
 
           {/* Inventory Section */}
           <div className="bg-zinc-900/30 border border-zinc-800/50 rounded-3xl p-8">
-            <h2 className="text-xl font-black mb-6 flex items-center gap-2">
-              <LucideIcons.Package className="w-5 h-5 text-blue-500" />
-              MON INVENTAIRE
-            </h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-black flex items-center gap-2">
+                <LucideIcons.Package className="w-5 h-5 text-blue-500" />
+                MON INVENTAIRE
+              </h2>
+              <Link 
+                to="/inventory"
+                className="text-[10px] font-black text-zinc-500 hover:text-white uppercase tracking-widest transition-colors"
+              >
+                Voir tout →
+              </Link>
+            </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {profile?.inventory && profile.inventory.length > 0 ? (
-                profile.inventory.map((itemId, idx) => {
+              {userProfile?.inventory && userProfile.inventory.length > 0 ? (
+                userProfile.inventory.slice(0, 4).map((itemId, idx) => {
                   const item = allShopItems.find(si => si.id === itemId);
                   return (
-                    <div key={`${itemId}-${idx}`} className="flex items-center gap-3 bg-zinc-950/50 border border-zinc-800 rounded-2xl p-3">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                    <div key={`${itemId}-${idx}`} className="flex flex-col items-center gap-3 bg-zinc-950/50 border border-zinc-800 rounded-2xl p-4 group hover:border-blue-500/50 transition-all">
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
                         item?.type === 'attack' ? 'bg-red-500/10 text-red-500' : 'bg-blue-500/10 text-blue-500'
                       }`}>
-                        {item ? getIcon(item.icon, "w-5 h-5") : <LucideIcons.Package className="w-5 h-5" />}
+                        {item ? getIcon(item.icon, "w-6 h-6") : <LucideIcons.Package className="w-6 h-6" />}
                       </div>
-                      <div className="overflow-hidden">
+                      <div className="text-center overflow-hidden w-full">
                         <div className="text-[10px] font-black text-white uppercase truncate">{item?.name || itemId}</div>
                         <div className="text-[8px] font-bold text-zinc-600 uppercase">{item?.type || 'Objet'}</div>
                       </div>
@@ -242,7 +237,14 @@ export default function Profile() {
               )}
             </div>
             
-            <div className="mt-8 flex justify-center">
+            <div className="mt-8 flex gap-3 justify-center">
+              <Link 
+                to="/inventory" 
+                className="bg-zinc-800 hover:bg-zinc-700 text-white px-6 py-2 rounded-xl font-black text-xs transition-all flex items-center gap-2"
+              >
+                <LucideIcons.Package className="w-4 h-4" />
+                GÉRER L'INVENTAIRE
+              </Link>
               <Link 
                 to="/auction-house" 
                 className="bg-zinc-800 hover:bg-zinc-700 text-white px-6 py-2 rounded-xl font-black text-xs transition-all flex items-center gap-2"

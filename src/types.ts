@@ -4,6 +4,7 @@ export type Question = {
   options: string[];
   correctOptionIndex: number;
   timeLimit: number;
+  theme?: string;
 };
 
 export type Player = {
@@ -34,6 +35,7 @@ export type RoomState = {
       showAnswer: boolean;
       theme?: string;
       isPublic?: boolean;
+      timeLimit: number;
     };
 
 export interface Badge {
@@ -75,7 +77,18 @@ export type ShopItem = {
   description: string;
   price: number;
   icon: string;
-  type: 'attack' | 'defense' | 'bonus';
+  type: 'attack' | 'defense' | 'bonus' | 'spell';
+  power?: number; // 1 to 5
+};
+
+export type Chest = {
+  id: string | number;
+  name: string;
+  description: string;
+  price: number;
+  icon: string;
+  possibleItems: string[]; // IDs of ShopItems
+  rarity: 'common' | 'rare' | 'epic' | 'legendary';
 };
 
 export type Theme = {

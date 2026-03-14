@@ -29,7 +29,7 @@ export default function SpaceBackground() {
           repeat: Infinity,
           ease: "linear"
         }}
-        className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] rounded-full bg-purple-900/20 blur-[120px]"
+        className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] rounded-full bg-primary-900/20 blur-[120px]"
       />
       <motion.div 
         animate={{
@@ -43,7 +43,7 @@ export default function SpaceBackground() {
           repeat: Infinity,
           ease: "linear"
         }}
-        className="absolute bottom-[-10%] right-[-10%] w-[70%] h-[70%] rounded-full bg-blue-900/20 blur-[150px]"
+        className="absolute bottom-[-10%] right-[-10%] w-[70%] h-[70%] rounded-full bg-primary-900/20 blur-[150px]"
       />
       <motion.div 
         animate={{
@@ -55,7 +55,7 @@ export default function SpaceBackground() {
           repeat: Infinity,
           ease: "linear"
         }}
-        className="absolute top-[20%] right-[10%] w-[40%] h-[40%] rounded-full bg-fuchsia-900/10 blur-[100px]"
+        className="absolute top-[20%] right-[10%] w-[40%] h-[40%] rounded-full bg-accent-900/10 blur-[100px]"
       />
 
       {/* Stars */}

@@ -1,0 +1,154 @@
+{
+  "entities": {
+    "LeaderboardEntry": {
+      "title": "LeaderboardEntry",
+      "description": "An entry in the global leaderboard / User Profile",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "username": { "type": "string" },
+        "avatar": { "type": "string" },
+        "level": { "type": "number" },
+        "xp": { "type": "number" },
+        "coins": { "type": "number" },
+        "brainCoins": { "type": "number" },
+        "inventory": { 
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 15
+        }
+      },
+      "required": ["username", "level", "xp", "coins", "brainCoins", "inventory"]
+    },
+    "Theme": {
+      "title": "Theme",
+      "description": "A quiz theme",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" }
+      },
+      "required": ["id", "name"]
+    },
+    "ShopItem": {
+      "title": "ShopItem",
+      "description": "An item in the shop",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "type": { "type": "string" }
+      },
+      "required": ["id", "name", "price", "type"]
+    },
+    "InventoryItem": {
+      "title": "InventoryItem",
+      "description": "An item in a user's inventory",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "itemId": { "type": "string" },
+        "quantity": { "type": "number" }
+      },
+      "required": ["userId", "itemId", "quantity"]
+    },
+    "AuctionItem": {
+      "title": "AuctionItem",
+      "description": "An item currently in auction",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "itemId": { "type": "string" },
+        "sellerId": { "type": "string" },
+        "currentBid": { "type": "number" },
+        "highestBidderId": { "type": "string" },
+        "endTime": { "type": "number" }
+      },
+      "required": ["id", "itemId", "sellerId", "currentBid", "endTime"]
+    },
+    "Badge": {
+      "title": "Badge",
+      "description": "A player badge",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "icon": { "type": "string" },
+        "level": { "type": "number" },
+        "rarity": { "type": "number" }
+      },
+      "required": ["id", "name", "description", "icon", "level", "rarity"]
+    },
+    "Chest": {
+      "title": "Chest",
+      "description": "A loot chest",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "icon": { "type": "string" },
+        "possibleItems": { "type": "array", "items": { "type": "string" } },
+        "rarity": { "type": "string", "enum": ["common", "rare", "epic", "legendary"] }
+      },
+      "required": ["id", "name", "description", "price", "icon", "possibleItems", "rarity"]
+    },
+    "Room": {
+      "title": "Room",
+      "description": "A quiz room",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "theme": { "type": "string" },
+        "timeLimit": { "type": "number" },
+        "hostId": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "name", "theme", "timeLimit", "hostId", "status"]
+    }
+  },
+  "firestore": {
+    "profiles": {
+      "schema": { "$ref": "LeaderboardEntry" },
+      "description": "User profiles and global leaderboard collection"
+    },
+    "themes": {
+      "schema": { "$ref": "Theme" },
+      "description": "Quiz themes collection"
+    },
+    "shopItems": {
+      "schema": { "$ref": "ShopItem" },
+      "description": "Shop items collection"
+    },
+    "inventory": {
+      "schema": { "$ref": "InventoryItem" },
+      "description": "User inventory collection"
+    },
+    "auctions": {
+      "schema": { "$ref": "AuctionItem" },
+      "description": "Active auctions collection"
+    },
+    "badges": {
+      "schema": { "$ref": "Badge" },
+      "description": "Badges collection"
+    },
+    "chests": {
+      "schema": { "$ref": "Chest" },
+      "description": "Loot chests collection"
+    },
+    "rooms": {
+      "schema": { "$ref": "Room" },
+      "description": "Quiz rooms collection"
+    },
+    "pendingQuestions": {
+      "schema": { "type": "object" },
+      "description": "Pending quiz questions collection"
+    }
+  }
+}

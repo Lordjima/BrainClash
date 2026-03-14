@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   Users, 
@@ -7,7 +7,6 @@ import {
   ChevronRight, 
   User, 
   Star, 
-  ShoppingBag, 
   Plus, 
   Info, 
   Zap, 
@@ -15,29 +14,58 @@ import {
   Coins, 
   Package, 
   X, 
-  Backpack 
+  Backpack,
+  Sparkles,
+  Gamepad2,
+  Menu
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import * as LucideIcons from 'lucide-react';
 
-import { socket } from '../lib/socket';
 import { useData } from '../DataContext';
-import { Badge as BadgeType } from '../types';
 import Logo from '../components/Logo';
+import { QuizService } from '../services/QuizService';
+import ChestOpening from '../components/ChestOpening';
+import { Chest, ShopItem } from '../types';
 
 export default function Home() {
   const navigate = useNavigate();
-  const { leaderboard, isLoaded, userProfile, shopItems } = useData();
+  const { leaderboard, isLoaded, userProfile, shopItems, badges: allBadges, chests } = useData();
   
   const [roomCode, setRoomCode] = useState('');
+  const [codeDigits, setCodeDigits] = useState(['', '', '', '']);
+  const inputRefs = [
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null)
+  ];
+
+  const handleDigitChange = (index: number, value: string) => {
+    const char = value.toUpperCase().slice(-1);
+    const newDigits = [...codeDigits];
+    newDigits[index] = char;
+    setCodeDigits(newDigits);
+    setRoomCode(newDigits.join(''));
+
+    if (char && index < 3) {
+      inputRefs[index + 1].current?.focus();
+    }
+    if (error) setError('');
+  };
+
+  const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !codeDigits[index] && index > 0) {
+      inputRefs[index - 1].current?.focus();
+    }
+  };
   const [error, setError] = useState('');
   const [twitchUser, setTwitchUser] = useState<any>(null);
-  const [allBadges, setAllBadges] = useState<BadgeType[]>([]);
   
   const [showRules, setShowRules] = useState(false);
-  const [showBag, setShowBag] = useState(false);
-  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  
+  const [openingChest, setOpeningChest] = useState<Chest | null>(null);
 
   useEffect(() => {
     // Logo loading simulation
@@ -64,43 +92,65 @@ export default function Home() {
     };
     window.addEventListener('message', handleMessage);
 
-    socket.on('room_joined', (roomId) => {
-      navigate(`/room/${roomId}`);
-    });
-
-    socket.on('error', (msg) => {
-      setError(msg);
-    });
-
-    socket.on('bootstrap_data', (data) => {
-      if (data.allBadges) {
-        setAllBadges(data.allBadges);
-      }
-    });
-
-    socket.emit('request_bootstrap_data');
-
     return () => {
       clearTimeout(timer);
       window.removeEventListener('message', handleMessage);
-      socket.off('room_joined');
-      socket.off('error');
-      socket.off('bootstrap_data');
     };
   }, [navigate]);
 
-  const handleJoinRoom = (e: React.FormEvent) => {
+  const handleJoinRoom = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!twitchUser) {
       alert('Veuillez vous connecter avec Twitch pour jouer.');
       return;
     }
-    if (roomCode.trim()) {
-      socket.emit('join_room', {
-        roomId: roomCode.trim().toUpperCase(),
-        username: twitchUser.display_name,
-        avatar: twitchUser.profile_image_url
-      });
+    
+    const code = roomCode.trim().toUpperCase();
+    if (code) {
+      try {
+        // Special case for JIMA demo room
+        if (code === 'JIMA') {
+          const { doc, getDoc } = await import('firebase/firestore');
+          const { db } = await import('../lib/firebase');
+          const roomSnap = await getDoc(doc(db, 'rooms', 'JIMA'));
+          
+          if (!roomSnap.exists()) {
+            // Create a default demo room if it doesn't exist
+            await QuizService.createRoomWithCode('JIMA', {
+              name: "Salon de Jima",
+              description: "Bienvenue dans l'arène officielle de JimaG4ming !",
+              theme: "general",
+              timeLimit: 15,
+              questions: [
+                {
+                  id: 'q1',
+                  text: "Quel est le jeu préféré de Jima ?",
+                  options: ["League of Legends", "Valorant", "Minecraft", "Fortnite"],
+                  correctOptionIndex: 1,
+                  timeLimit: 15,
+                  theme: "general"
+                },
+                {
+                  id: 'q2',
+                  text: "Combien de BrainCoins coûte un badge Légendaire ?",
+                  options: ["10", "50", "100", "500"],
+                  correctOptionIndex: 2,
+                  timeLimit: 15,
+                  theme: "general"
+                }
+              ]
+            });
+          }
+        }
+
+        await QuizService.joinRoom(code, twitchUser.display_name, twitchUser.profile_image_url);
+        navigate(`/room/${code}`);
+      } catch (err: any) {
+        console.error('Error joining room:', err);
+        setError(err.message === 'Room not found' 
+          ? "Ce salon n'existe pas. Essayez 'JIMA' pour le salon démo !" 
+          : err.message || 'Erreur lors de la connexion au salon.');
+      }
     }
   };
 
@@ -117,18 +167,18 @@ export default function Home() {
             key="loader"
             initial={{ opacity: 1 }}
             exit={{ opacity: 0, scale: 1.1 }}
-            className="absolute inset-0 z-[200] bg-zinc-950 flex flex-col items-center justify-center gap-8"
+            className="fixed inset-0 z-[999] bg-zinc-950 flex flex-col items-center justify-center gap-8"
           >
             <motion.div
               animate={{ 
-                scale: [1, 1.1, 1],
+                scale: [1.5, 1.65, 1.5],
                 rotate: [0, 5, -5, 0]
               }}
               transition={{ repeat: Infinity, duration: 2 }}
             >
               <Logo />
             </motion.div>
-            <div className="w-48 h-1 bg-zinc-900 rounded-full overflow-hidden">
+            <div className="w-64 h-1.5 bg-zinc-900 rounded-full overflow-hidden mt-8">
               <motion.div 
                 initial={{ width: 0 }}
                 animate={{ width: "100%" }}
@@ -136,72 +186,54 @@ export default function Home() {
                 className="h-full bg-gradient-to-r from-purple-600 to-pink-600"
               />
             </div>
-            <p className="text-zinc-500 font-black tracking-[0.3em] text-xs uppercase animate-pulse">
-              Initialisation des neurones...
-            </p>
+            <motion.span 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: [0, 1, 0] }}
+              transition={{ repeat: Infinity, duration: 2 }}
+              className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.3em]"
+            >
+              Préparation de l'arène...
+            </motion.span>
           </motion.div>
         ) : (
           <motion.div 
             key="main"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex-1 flex flex-col min-h-screen w-full"
+            className="flex-1 flex flex-col w-screen h-screen relative overflow-hidden"
           >
-            {/* Left Sidebar */}
-            <div className="hidden md:flex fixed left-0 top-0 h-full w-[250px] bg-zinc-950/30 border-r border-zinc-800/50 p-4 z-20 flex-col gap-4">
-              <h3 className="text-sm font-black text-zinc-400 uppercase tracking-wider flex items-center gap-2">
-                <Trophy className="w-4 h-4 text-yellow-500" />
-                Classement
-              </h3>
-              <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2">
-                {leaderboard.slice(0, 10).map((entry, index) => (
-                  <div key={entry.username} className="flex items-center gap-2 p-2 rounded-xl bg-zinc-900/50 border border-zinc-800">
-                    <span className="font-mono text-xs text-zinc-500 w-4">{index + 1}</span>
-                    <span className="font-bold text-xs truncate flex-1">{entry.username}</span>
-                    <span className="font-mono text-xs text-yellow-500">{entry.score.toLocaleString()}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Right Sidebar */}
-            <div className="hidden md:flex fixed right-0 top-0 h-full w-[250px] bg-zinc-950/30 border-l border-zinc-800/50 p-4 z-20 flex-col gap-4">
-              <h3 className="text-sm font-black text-zinc-400 uppercase tracking-wider flex items-center gap-2">
-                <ShoppingBag className="w-4 h-4 text-amber-500" />
-                Boutique
-              </h3>
-              <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2">
-                {shopItems.map((item) => (
-                  <div key={item.id} className="flex items-center gap-2 p-2 rounded-xl bg-zinc-900/50 border border-zinc-800">
-                    <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center">
-                      {getIcon(item.icon, "w-4 h-4")}
-                    </div>
-                    <div className="flex-1">
-                      <div className="font-bold text-xs truncate">{item.name}</div>
-                      <div className="text-[10px] text-zinc-500">{item.price} coins</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            {/* Left Toggle Button (Menu) */}
+            <div className="fixed bottom-8 left-8 z-50">
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => navigate('/menu')}
+                className="w-16 h-16 bg-zinc-900/80 backdrop-blur-xl border-2 border-white/10 rounded-2xl flex items-center justify-center shadow-2xl group transition-all hover:border-fuchsia-500/50"
+              >
+                <Menu className="w-8 h-8 text-zinc-400 group-hover:text-fuchsia-500 transition-colors" />
+                <div className="absolute bottom-full mb-3 left-0 px-3 py-1.5 bg-zinc-900 border border-white/10 text-[10px] font-black uppercase tracking-widest rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-2xl">
+                  Menu Principal
+                </div>
+              </motion.button>
             </div>
 
             {/* Main Content */}
-            <div className="flex-1 w-full h-full bg-zinc-900/40 relative overflow-hidden flex flex-col items-center justify-center p-4">
+            <div className="flex-1 w-full flex flex-col items-center justify-center p-6 relative">
               {/* Decorative Background Elements */}
-              <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-purple-600/10 blur-[100px] -mr-32 -mt-32 pointer-events-none" />
-              <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-pink-600/10 blur-[100px] -ml-32 -mb-32 pointer-events-none" />
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl aspect-square bg-fuchsia-600/1 blur-[150px] rounded-full pointer-events-none" />
               
-              <div className="relative z-10 text-center space-y-3 md:space-y-6 w-full max-w-4xl flex flex-col items-center justify-center">
-                {/* Phrase instead of Logos */}
+              <div className="relative z-10 w-full max-w-xl flex flex-col items-center">
+                {/* Welcome */}
                 <motion.div
                   initial={{ y: -20, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.2 }}
-                  className="py-4 md:py-8"
+                  className="mb-12 flex flex-col items-center"
                 >
-                  <h2 className="text-xl md:text-3xl lg:text-4xl font-display font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-zinc-400 to-white uppercase italic">
-                    ENTREZ LE CODE POUR REJOINDRE L'ARÈNE
-                  </h2>
+                  <h1 className="text-4xl md:text-6xl font-black text-white tracking-tighter uppercase italic text-center leading-[0.9]">
+                    Prêt pour <br />
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-500 via-purple-500 to-pink-500">l'affrontement ?</span>
+                  </h1>
                 </motion.div>
 
                 {/* Join Form */}
@@ -210,60 +242,81 @@ export default function Home() {
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.4 }}
                   onSubmit={handleJoinRoom} 
-                  className="space-y-3 md:space-y-4 w-full max-w-xs md:max-w-sm mx-auto"
+                  className="w-full space-y-12"
                 >
-                  <div className="relative group">
-                    <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 via-pink-600 to-orange-600 rounded-2xl blur-md opacity-20 group-focus-within:opacity-40 transition duration-1000"></div>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        placeholder="CODE"
-                        value={roomCode}
-                        onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-                        className="w-full bg-zinc-950/90 border-[3px] border-zinc-800 rounded-2xl px-4 py-3 md:py-4 text-xl md:text-3xl lg:text-4xl font-mono font-black tracking-[0.4em] text-center focus:border-purple-500 outline-none transition-all placeholder:text-zinc-900"
-                        maxLength={4}
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="relative w-full group overflow-hidden rounded-2xl p-[2px] transition-transform active:scale-95 shadow-2xl shadow-purple-500/10"
+                  <motion.div
+                    animate={error ? { x: [-10, 10, -10, 10, 0] } : {}}
+                    transition={{ duration: 0.4 }}
+                    className="flex justify-center gap-3 md:gap-5"
                   >
-                    <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600"></div>
-                    <div className="relative bg-zinc-950 group-hover:bg-transparent transition-colors py-3 md:py-4 rounded-[0.9rem] flex items-center justify-center gap-3">
-                      <span className="text-sm md:text-lg lg:text-xl font-black tracking-tighter group-hover:text-white transition-colors">
-                        REJOINDRE L'ARÈNE
-                      </span>
-                      <ChevronRight className="w-4 h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 group-hover:translate-x-2 transition-transform" />
-                    </div>
-                  </button>
+                    {codeDigits.map((digit, i) => (
+                      <div key={i} className="relative group">
+                        <div className="absolute -inset-1 bg-gradient-to-r from-fuchsia-600 to-purple-600 rounded-2xl blur-md opacity-0 group-focus-within:opacity-40 transition duration-500"></div>
+                        <motion.input
+                          ref={inputRefs[i]}
+                          whileFocus={{ scale: 1.05 }}
+                          type="text"
+                          value={digit}
+                          onPaste={(e) => {
+                            if (i === 0) {
+                              const paste = e.clipboardData.getData('text').toUpperCase().slice(0, 4).split('');
+                              if (paste.length > 0) {
+                                const newDigits = [...codeDigits];
+                                paste.forEach((char, idx) => {
+                                  if (idx < 4) newDigits[idx] = char;
+                                });
+                                setCodeDigits(newDigits);
+                                setRoomCode(newDigits.join(''));
+                                inputRefs[Math.min(paste.length, 3)].current?.focus();
+                              }
+                            }
+                          }}
+                          onChange={(e) => handleDigitChange(i, e.target.value)}
+                          onKeyDown={(e) => handleKeyDown(i, e)}
+                          className="w-14 h-18 md:w-20 md:h-24 bg-zinc-950/90 border-2 border-white/10 rounded-2xl text-3xl md:text-4xl font-mono font-black text-center focus:border-fuchsia-500 focus:ring-4 focus:ring-fuchsia-500/20 outline-none transition-all text-white shadow-2xl"
+                          maxLength={1}
+                        />
+                      </div>
+                    ))}
+                  </motion.div>
 
-                  {error && (
-                    <motion.p 
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="text-red-500 text-[9px] md:text-[10px] font-black italic uppercase tracking-wider"
+                  <div className="flex flex-col items-center gap-6">
+                    <button
+                      type="submit"
+                      className="relative w-full max-w-xs group overflow-hidden rounded-2xl p-[2px] transition-all active:scale-95 shadow-[0_0_30px_rgba(217,70,239,0.15)] hover:shadow-[0_0_50px_rgba(217,70,239,0.3)]"
                     >
-                      ⚠ {error}
-                    </motion.p>
-                  )}
-                </motion.form>
+                      <div className="absolute inset-0 bg-gradient-to-r from-fuchsia-600 via-purple-600 to-pink-600 animate-gradient-x"></div>
+                      <div className="relative bg-zinc-950 group-hover:bg-transparent transition-all py-4 rounded-[0.9rem] flex items-center justify-center gap-3">
+                        <Gamepad2 className="w-6 h-6 text-fuchsia-500 group-hover:text-white transition-colors" />
+                        <span className="text-lg font-black tracking-tighter group-hover:text-white transition-colors uppercase italic">
+                          Rejoindre l'Arène
+                        </span>
+                        <div className="absolute right-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all">
+                          <ChevronRight className="w-5 h-5 text-white" />
+                        </div>
+                      </div>
+                    </button>
 
-                {/* Bottom Links */}
-                <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.5 }}
-                  className="flex justify-center gap-4 md:gap-8"
-                >
-                  <Link to="/create" className="group flex flex-col items-center gap-1.5">
-                    <div className="w-7 h-7 md:w-9 md:h-9 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center group-hover:border-yellow-500/50 transition-colors">
-                      <Star className="w-3.5 h-3.5 md:w-4.5 md:h-4.5 text-yellow-500 group-hover:scale-110 transition-transform" />
-                    </div>
-                    <span className="text-[6px] md:text-[7px] font-black text-zinc-500 uppercase tracking-widest group-hover:text-white">Héberger</span>
-                  </Link>
-                </motion.div>
+                    <button
+                      onClick={() => navigate('/create')}
+                      className="w-full max-w-xs bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-white py-4 rounded-2xl font-black text-lg transition-all active:scale-95 uppercase italic"
+                    >
+                      Créer un salon
+                    </button>
+
+                    {error && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/20 rounded-full"
+                      >
+                        <span className="text-red-500 text-[10px] font-black italic uppercase tracking-wider">
+                          ⚠ {error}
+                        </span>
+                      </motion.div>
+                    )}
+                  </div>
+                </motion.form>
               </div>
             </div>
           </motion.div>
@@ -272,6 +325,22 @@ export default function Home() {
 
       {/* Rules Modal */}
       <AnimatePresence>
+        {openingChest && (
+          <ChestOpening
+            chest={openingChest}
+            onClose={() => setOpeningChest(null)}
+            onReward={async (item) => {
+              try {
+                await QuizService.buyChest(openingChest.id.toString());
+                await QuizService.addToInventory(item.id.toString());
+              } catch (err: any) {
+                alert(err.message || "Erreur lors de l'achat du coffre");
+                setOpeningChest(null);
+              }
+            }}
+            allShopItems={shopItems}
+          />
+        )}
         {showRules && (
           <motion.div 
             initial={{ opacity: 0 }}
@@ -355,152 +424,7 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      {/* Leaderboard Modal */}
-      <AnimatePresence>
-        {showLeaderboard && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-xl p-6"
-          >
-            <motion.div 
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              className="w-full max-w-2xl bg-zinc-900 border border-zinc-800 rounded-[32px] p-4 md:p-6 relative overflow-hidden flex flex-col max-h-[80vh]"
-            >
-              <button 
-                onClick={() => setShowLeaderboard(false)}
-                className="absolute top-8 right-8 p-2 hover:bg-zinc-800 rounded-xl transition-colors"
-              >
-                <X className="w-8 h-8" />
-              </button>
-
-              <h2 className="text-2xl font-black tracking-tighter mb-4 flex items-center gap-4">
-                <Trophy className="w-10 h-10 text-yellow-500" />
-                HALL OF FAME
-              </h2>
-
-              <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-3">
-                {leaderboard.map((entry, index) => (
-                  <div 
-                    key={entry.username}
-                    className="flex items-center gap-3 p-3 rounded-2xl bg-zinc-950/50 border border-zinc-800 group hover:border-purple-500/50 transition-colors"
-                  >
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black ${
-                      index === 0 ? 'bg-yellow-500 text-black' :
-                      index === 1 ? 'bg-zinc-300 text-black' :
-                      index === 2 ? 'bg-amber-700 text-white' :
-                      'bg-zinc-800 text-zinc-500'
-                    }`}>
-                      {index + 1}
-                    </div>
-                    
-                    {entry.avatar ? (
-                      <img src={entry.avatar} alt="" className="w-10 h-10 rounded-full border border-zinc-800" referrerPolicy="no-referrer" />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center">
-                        <User className="w-5 h-5 text-zinc-600" />
-                      </div>
-                    )}
-
-                    <div className="flex-1">
-                      <div className="font-black text-lg">{entry.username}</div>
-                      <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Niveau {entry.level || 1}</div>
-                    </div>
-
-                    <div className="text-right">
-                      <div className="text-xl font-black text-white">{entry.score.toLocaleString()}</div>
-                      <div className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest">Points</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* WoW Style Inventory Bag Modal */}
-      <AnimatePresence>
-        {showBag && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[150] flex items-center justify-center bg-black/40 backdrop-blur-sm pointer-events-none"
-          >
-            <motion.div 
-              initial={{ scale: 0.5, x: 200, y: 200, opacity: 0 }}
-              animate={{ scale: 1, x: 0, y: 0, opacity: 1 }}
-              exit={{ scale: 0.5, x: 200, y: 200, opacity: 0 }}
-              className="pointer-events-auto w-full max-w-md bg-[#2a241e] border-[6px] border-[#4a3c2c] rounded-lg shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col"
-              style={{
-                backgroundImage: 'radial-gradient(circle at center, #3a3126 0%, #2a241e 100%)'
-              }}
-            >
-              {/* Bag Header */}
-              <div className="bg-[#1a1612] px-4 py-2 border-b-2 border-[#4a3c2c] flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Backpack className="w-4 h-4 text-[#c4a484]" />
-                  <h3 className="text-[#c4a484] font-black text-xs uppercase tracking-widest">Sac de voyage</h3>
-                </div>
-                <button onClick={() => setShowBag(false)} className="text-[#4a3c2c] hover:text-[#c4a484] transition-colors">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Bag Grid */}
-              <div className="p-4 grid grid-cols-4 gap-2 bg-[#1a1612]/30">
-                {Array.from({ length: 16 }).map((_, i) => {
-                  const itemId = userProfile?.inventory?.[i];
-                  const item = itemId ? shopItems.find(si => si.id === itemId) : null;
-                  
-                  return (
-                    <div 
-                      key={i} 
-                      className={`aspect-square rounded border-2 border-[#4a3c2c] bg-black/40 flex items-center justify-center relative group cursor-pointer hover:border-[#c4a484]/50 transition-colors ${item ? 'shadow-inner' : ''}`}
-                    >
-                      {item ? (
-                        <>
-                          <div className={`w-full h-full flex items-center justify-center ${
-                            item.type === 'attack' ? 'text-red-400' : 'text-blue-400'
-                          }`}>
-                            {getIcon(item.icon, "w-8 h-8")}
-                          </div>
-                          {/* Tooltip */}
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 bg-black/90 border border-[#4a3c2c] p-2 rounded text-[10px] opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10">
-                            <div className="font-black text-[#c4a484] uppercase mb-1">{item.name}</div>
-                            <div className="text-zinc-400 leading-tight">{item.description}</div>
-                          </div>
-                        </>
-                      ) : (
-                        <div className="w-full h-full bg-[#1a1612]/20" />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Bag Footer: Money */}
-              <div className="bg-[#1a1612] p-4 border-t-2 border-[#4a3c2c] flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-amber-500 font-mono font-bold text-sm">{userProfile?.coins || 0}</span>
-                    <div className="w-4 h-4 bg-amber-500 rounded-full border border-amber-700 shadow-sm" />
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-fuchsia-400 font-mono font-bold text-sm">{userProfile?.brainCoins || 0}</span>
-                    <div className="w-4 h-4 bg-fuchsia-500 rounded-full border border-fuchsia-700 shadow-sm flex items-center justify-center text-[8px] font-black text-white">B</div>
-                  </div>
-                </div>
-                <div className="text-[10px] font-black text-[#4a3c2c] uppercase tracking-tighter">16 / 16 Slots</div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Rules Modal */}
     </div>
   );
 }
