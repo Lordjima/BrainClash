@@ -1,95 +1,116 @@
 import { ShopItem, Badge, Chest } from '../types';
 
+const now = Date.now();
+
 export const INITIAL_SHOP_ITEMS: ShopItem[] = [
   {
-    id: 'shield_1',
-    name: 'Bouclier de Bronze',
-    description: 'Protège contre une attaque mineure.',
-    price: 150,
+    id: 'bouclier',
+    name: 'Bouclier de Force',
+    description: 'Vous protège des attaques des autres joueurs pendant 15s.',
+    price: 300,
+    currency: 'coins',
     icon: 'Shield',
     type: 'defense',
-    power: 1
+    power: 1,
+    active: true,
+    createdAt: now,
+    updatedAt: now
   },
   {
-    id: 'shield_2',
-    name: 'Bouclier d\'Argent',
-    description: 'Une protection solide pour les duels.',
-    price: 450,
-    icon: 'ShieldCheck',
-    type: 'defense',
-    power: 3
+    id: 'fumigene',
+    name: 'Fumigène Ninja',
+    description: 'Brouille l\'écran de tous les autres joueurs pendant 10s.',
+    price: 50,
+    currency: 'brainCoins',
+    icon: 'EyeOff',
+    type: 'attack',
+    power: 2,
+    active: true,
+    createdAt: now,
+    updatedAt: now
   },
   {
-    id: 'shield_3',
-    name: 'Égide d\'Or',
-    description: 'La protection ultime des champions.',
-    price: 1200,
+    id: 'seisme',
+    name: 'Séisme',
+    description: 'Fait trembler l\'écran des adversaires pendant 8s.',
+    price: 750,
+    currency: 'coins',
+    icon: 'Zap',
+    type: 'attack',
+    power: 3,
+    active: true,
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    id: 'inversion',
+    name: 'Inversion Spatiale',
+    description: 'Renverse l\'écran des autres joueurs pendant 10s.',
+    price: 100,
+    currency: 'brainCoins',
+    icon: 'RefreshCcw',
+    type: 'attack',
+    power: 4,
+    active: true,
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    id: 'gel',
+    name: 'Gel Temporel',
+    description: 'Gèle les boutons de réponse des adversaires pendant 5s.',
+    price: 1500,
+    currency: 'coins',
+    icon: 'Snowflake',
+    type: 'attack',
+    power: 5,
+    chestOnly: true,
+    active: true,
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    id: 'flash',
+    name: 'Flash Divin',
+    description: 'Éblouissement total et instantané pour tous les adversaires (12s).',
+    price: 250,
+    currency: 'brainCoins',
+    icon: 'Sun',
+    type: 'attack',
+    power: 5,
+    isExclusive: true,
+    chestOnly: true,
+    active: true,
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    id: 'super_bouclier',
+    name: 'Égide de Diamant',
+    description: 'Immunité totale pendant 30s et renvoie les malus.',
+    price: 500,
+    currency: 'brainCoins',
     icon: 'ShieldAlert',
     type: 'defense',
-    power: 5
+    power: 5,
+    isExclusive: true,
+    chestOnly: true,
+    active: true,
+    createdAt: now,
+    updatedAt: now
   },
   {
-    id: 'sword_1',
-    name: 'Dague de Fer',
-    description: 'Une petite attaque rapide.',
-    price: 200,
-    icon: 'Sword',
-    type: 'attack',
-    power: 1
-  },
-  {
-    id: 'sword_2',
-    name: 'Lame de Duel',
-    description: 'Parfait pour trancher les scores.',
-    price: 600,
-    icon: 'Swords',
-    type: 'attack',
-    power: 3
-  },
-  {
-    id: 'sword_3',
-    name: 'Excalibur',
-    description: 'La légende entre vos mains.',
-    price: 2500,
-    icon: 'Zap',
-    type: 'attack',
-    power: 5
-  },
-  {
-    id: 'potion_1',
-    name: 'Potion de Rapidité',
-    description: 'Réduit le temps de réflexion de 2s.',
-    price: 300,
-    icon: 'Zap',
+    id: 'triple_points',
+    name: 'Triple Score',
+    description: 'Vos points sont triplés sur les 3 prochaines questions.',
+    price: 150,
+    currency: 'brainCoins',
+    icon: 'TrendingUp',
     type: 'bonus',
-    power: 2
-  },
-  {
-    id: 'potion_2',
-    name: 'Élixir de Savoir',
-    description: 'Double les points pour la prochaine question.',
-    price: 800,
-    icon: 'FlaskConical',
-    type: 'bonus',
-    power: 4
-  },
-  {
-    id: 'spell_1',
-    name: 'Gel Temporel',
-    description: 'Gèle le temps pour tous les autres joueurs pendant 3s.',
-    price: 1500,
-    icon: 'Snowflake',
-    type: 'spell',
-    power: 4
-  },
-  {
-    id: 'spell_2',
-    name: 'Foudre Divine',
-    description: 'Retire 500 points au premier du classement.',
-    price: 3000,
-    icon: 'CloudLightning',
-    type: 'spell',
-    power: 5
+    power: 4,
+    active: true,
+    createdAt: now,
+    updatedAt: now
   }
 ];
 
@@ -100,7 +121,7 @@ export const INITIAL_BADGES: Badge[] = [
     description: 'Bienvenue dans l\'arène !',
     icon: 'UserPlus',
     level: 1,
-    rarity: 100
+    rarity: 'common'
   },
   {
     id: 'winner_1',
@@ -108,7 +129,7 @@ export const INITIAL_BADGES: Badge[] = [
     description: 'Gagner sa première partie.',
     icon: 'Trophy',
     level: 5,
-    rarity: 40
+    rarity: 'rare'
   },
   {
     id: 'streak_5',
@@ -116,7 +137,7 @@ export const INITIAL_BADGES: Badge[] = [
     description: 'Répondre juste à 5 questions d\'affilée.',
     icon: 'Flame',
     level: 10,
-    rarity: 25
+    rarity: 'rare'
   },
   {
     id: 'collector',
@@ -124,7 +145,7 @@ export const INITIAL_BADGES: Badge[] = [
     description: 'Posséder 10 objets différents.',
     icon: 'Package',
     level: 15,
-    rarity: 10
+    rarity: 'epic'
   },
   {
     id: 'legend',
@@ -132,7 +153,7 @@ export const INITIAL_BADGES: Badge[] = [
     description: 'Atteindre le niveau 50.',
     icon: 'Crown',
     level: 50,
-    rarity: 1
+    rarity: 'legendary'
   }
 ];
 
@@ -141,36 +162,44 @@ export const INITIAL_CHESTS: Chest[] = [
     id: 'chest_common',
     name: 'Coffre en Bois',
     description: 'Contient principalement des objets communs.',
-    price: 500,
+    price: 200,
+    currency: 'coins',
     icon: 'Package',
-    possibleItems: ['shield_1', 'sword_1', 'potion_1'],
-    rarity: 'common'
+    possibleItems: ['bouclier', 'fumigene', 'seisme'],
+    rarity: 'common',
+    active: true
   },
   {
     id: 'chest_rare',
     name: 'Coffre Renforcé',
-    description: 'Une chance d\'obtenir des objets rares.',
-    price: 1500,
+    description: 'Une chance d\'obtenir des objets rares et le Gel Temporel.',
+    price: 30,
+    currency: 'brainCoins',
     icon: 'PackagePlus',
-    possibleItems: ['shield_2', 'sword_2', 'potion_2', 'shield_1', 'sword_1'],
-    rarity: 'rare'
+    possibleItems: ['seisme', 'inversion', 'bouclier', 'gel'],
+    rarity: 'rare',
+    active: true
   },
   {
     id: 'chest_epic',
     name: 'Coffre Mystique',
-    description: 'Contient souvent des sorts puissants.',
-    price: 5000,
-    icon: 'Sparkles',
-    possibleItems: ['spell_1', 'shield_3', 'sword_3', 'potion_2'],
-    rarity: 'epic'
+    description: 'Contient souvent des sorts puissants et exclusifs.',
+    price: 2000,
+    currency: 'coins',
+    icon: 'Zap',
+    possibleItems: ['gel', 'inversion', 'seisme', 'flash'],
+    rarity: 'epic',
+    active: true
   },
   {
     id: 'chest_legendary',
     name: 'Coffre des Dieux',
-    description: 'L\'élite de l\'équipement.',
-    price: 15000,
+    description: 'L\'élite de l\'équipement. Seul moyen d\'avoir l\'Égide de Diamant.',
+    price: 150,
+    currency: 'brainCoins',
     icon: 'Crown',
-    possibleItems: ['spell_2', 'sword_3', 'shield_3', 'spell_1'],
-    rarity: 'legendary'
+    possibleItems: ['flash', 'super_bouclier', 'gel', 'inversion', 'triple_points'],
+    rarity: 'legendary',
+    active: true
   }
 ];

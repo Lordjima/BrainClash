@@ -3,15 +3,16 @@ import { useNavigate, Link } from 'react-router-dom';
 import { collection, addDoc } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { Send, CheckCircle, HelpCircle } from 'lucide-react';
-import { useData } from '../DataContext';
+import { useCatalog } from '../context/CatalogContext';
 import { PageLayout } from '../components/ui/PageLayout';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { EmptyState } from '../components/ui/EmptyState';
 
 export default function SubmitQuestion() {
   const navigate = useNavigate();
-  const { themes } = useData();
+  const { themes } = useCatalog();
   const [text, setText] = useState('');
   const [options, setOptions] = useState(['', '', '', '']);
   const [correctOptionIndex, setCorrectOptionIndex] = useState(0);
@@ -71,13 +72,15 @@ export default function SubmitQuestion() {
 
   if (!user) {
     return (
-      <div className="h-full bg-transparent text-white flex flex-col items-center justify-center p-6 text-center">
-        <h2 className="text-2xl font-bold mb-4">Connexion requise</h2>
-        <p className="text-zinc-400 mb-8">Vous devez être connecté pour proposer une question.</p>
-        <Link to="/" className="bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 px-6 rounded-xl transition-colors">
-          Retour à l'accueil
-        </Link>
-      </div>
+      <PageLayout maxWidth="max-w-7xl" contentClassName="flex items-center justify-center">
+        <EmptyState
+          icon={<HelpCircle className="w-12 h-12 text-zinc-700" />}
+          title="Connexion requise"
+          description="Vous devez être connecté pour proposer une question."
+          actionText="RETOUR À L'ACCUEIL"
+          actionLink="/"
+        />
+      </PageLayout>
     );
   }
 

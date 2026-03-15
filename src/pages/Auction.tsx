@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { ShoppingBag, Tag, Search, Filter, User, ArrowRight, X, Package, Coins } from 'lucide-react';
+import { ShoppingBag, Tag, Search, Filter, User, ArrowRight, X, Package, Coins, Gavel } from 'lucide-react';
 import { collection, onSnapshot, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { useData } from '../DataContext';
+import { useUser } from '../context/UserContext';
+import { useCatalog } from '../context/CatalogContext';
 import { AuctionItem } from '../types';
 import * as LucideIcons from 'lucide-react';
 import { PageLayout } from '../components/ui/PageLayout';
@@ -13,7 +14,8 @@ import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 
 export default function Auction() {
-  const { userProfile, shopItems } = useData();
+  const { wallet } = useUser();
+  const { items: shopItems } = useCatalog();
   const [items, setItems] = useState<AuctionItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -38,13 +40,14 @@ export default function Auction() {
   });
 
   return (
-    <PageLayout maxWidth="max-w-7xl">
+    <PageLayout>
       <PageHeader
         title="Hôtel des Ventes"
         subtitle="Le marché noir des cerveaux"
+        icon={<Gavel className="w-8 h-8 text-amber-500" />}
         actions={
           <Badge variant="amber" icon={<Coins />}>
-            {userProfile?.coins || 0}
+            {wallet?.coins || 0}
           </Badge>
         }
       />
@@ -72,10 +75,20 @@ export default function Auction() {
         {filteredItems.map((item) => {
           const shopItem = shopItems.find(si => si.id === item.itemId);
           return (
-            <Card key={item.id} hoverable className="flex flex-col gap-4">
+            <Card key={item.id} hoverable className="flex flex-col gap-4 group">
               <div className="aspect-square bg-zinc-950 rounded-2xl flex items-center justify-center border border-zinc-800 group-hover:border-fuchsia-500/20 transition-colors relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-600/5 to-purple-600/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                {shopItem ? getIcon(shopItem.icon, "w-16 h-16 text-zinc-400 group-hover:text-fuchsia-400 transition-all duration-500 group-hover:scale-110") : <ShoppingBag className="w-16 h-16 text-zinc-700" />}
+                <div className={`absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity blur-3xl ${
+                  shopItem?.type === 'attack' ? 'bg-red-500' : 
+                  shopItem?.type === 'defense' ? 'bg-blue-500' : 
+                  shopItem?.type === 'bonus' ? 'bg-green-500' : 
+                  shopItem?.type === 'spell' ? 'bg-yellow-500' : 'bg-fuchsia-600'
+                }`} />
+                {shopItem ? getIcon(shopItem.icon, `w-16 h-16 relative z-10 transition-all duration-500 group-hover:scale-110 ${
+                  shopItem.type === 'attack' ? 'text-red-500' : 
+                  shopItem.type === 'defense' ? 'text-blue-500' : 
+                  shopItem.type === 'bonus' ? 'text-green-500' : 
+                  shopItem.type === 'spell' ? 'text-yellow-500' : 'text-zinc-400 group-hover:text-fuchsia-400'
+                }`) : <ShoppingBag className="w-16 h-16 text-zinc-700" />}
               </div>
               
               <div className="space-y-1">
@@ -86,7 +99,20 @@ export default function Auction() {
                     <span className="text-[9px] font-black text-zinc-400 uppercase tracking-tighter truncate max-w-[60px]">{item.seller}</span>
                   </div>
                 </div>
-                <p className="text-[10px] text-zinc-500 font-black uppercase tracking-widest leading-relaxed">Objet de collection rare</p>
+                <div className="flex items-center gap-2">
+                  <Badge 
+                    variant={
+                      shopItem?.type === 'attack' ? 'red' : 
+                      shopItem?.type === 'defense' ? 'blue' : 
+                      shopItem?.type === 'bonus' ? 'green' : 
+                      shopItem?.type === 'spell' ? 'yellow' : 'zinc'
+                    }
+                    size="sm"
+                  >
+                    {shopItem?.type || 'Inconnu'}
+                  </Badge>
+                  <p className="text-[10px] text-zinc-500 font-black uppercase tracking-widest leading-relaxed">Objet de collection rare</p>
+                </div>
               </div>
 
               <div className="mt-auto pt-4 border-t border-zinc-800 flex items-center justify-between">

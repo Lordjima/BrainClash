@@ -1,6 +1,8 @@
 import React from 'react';
 import { Play, SkipForward, RotateCcw } from 'lucide-react';
 import { RoomState, Question } from '../../types';
+import { Button } from '../ui/Button';
+import { Badge } from '../ui/Badge';
 
 interface HostGameAreaProps {
   room: RoomState;
@@ -30,13 +32,14 @@ export default function HostGameArea({
           <p className="text-zinc-400 mb-8">
             Attendez que tous les joueurs soient connectés avant de lancer le quiz.
           </p>
-          <button
+          <Button
             onClick={onStartGame}
             disabled={Object.keys(room.players).length === 0}
-            className="w-full py-4 bg-fuchsia-500 hover:bg-fuchsia-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold text-lg transition-all shadow-lg shadow-fuchsia-500/20"
+            variant="primary"
+            className="w-full py-4 text-lg"
           >
             Lancer le quiz
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -53,12 +56,13 @@ export default function HostGameArea({
           <p className="text-zinc-400 mb-8">
             Tous les joueurs ont terminé. Vous pouvez relancer une partie avec les mêmes joueurs.
           </p>
-          <button
+          <Button
             onClick={onRestartGame}
-            className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-lg transition-all shadow-lg shadow-emerald-500/20"
+            variant="primary"
+            className="w-full py-4 text-lg bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/20"
           >
             Relancer une partie
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -69,9 +73,9 @@ export default function HostGameArea({
       <div className="bg-zinc-900 rounded-2xl p-6 border border-zinc-800">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-4">
-            <span className="px-3 py-1 bg-fuchsia-500/10 text-fuchsia-400 rounded-full text-xs font-bold uppercase tracking-wider">
+            <Badge variant="fuchsia">
               Question {room.currentQuestionIndex + 1} / {room.questions.length}
-            </span>
+            </Badge>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
@@ -108,20 +112,22 @@ export default function HostGameArea({
 
       <div className="flex justify-end gap-4">
         {!room.showAnswer ? (
-          <button
+          <Button
             onClick={onRevealAnswer}
-            className="px-8 py-4 bg-fuchsia-500 hover:bg-fuchsia-600 text-white rounded-xl font-bold flex items-center gap-3 transition-all shadow-lg shadow-fuchsia-500/20"
+            variant="primary"
+            className="px-8 py-4 text-lg"
           >
             Révéler la réponse
-          </button>
+          </Button>
         ) : (
-          <button
+          <Button
             onClick={onNextQuestion}
-            className="px-8 py-4 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl font-bold flex items-center gap-3 transition-all border border-zinc-700"
+            variant="secondary"
+            className="px-8 py-4 text-lg"
+            icon={<SkipForward className="w-5 h-5" />}
           >
             {room.currentQuestionIndex === room.questions.length - 1 ? 'Terminer le quiz' : 'Question suivante'}
-            <SkipForward className="w-5 h-5" />
-          </button>
+          </Button>
         )}
       </div>
     </div>

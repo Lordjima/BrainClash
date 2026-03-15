@@ -1,7 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, X } from 'lucide-react';
 import { RoomState } from '../../types';
+import { Button } from '../ui/Button';
 
 interface HostHeaderProps {
   room: RoomState;
@@ -22,19 +23,22 @@ export default function HostHeader({ room, onClose }: HostHeaderProps) {
         </div>
       </div>
       <div className="flex gap-3">
-        <Link
+        <Button
+          as={Link}
           to={`/overlay/${room.id}`}
           target="_blank"
-          className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm font-medium transition-colors border border-zinc-700 flex items-center gap-2"
+          variant="secondary"
+          icon={<ExternalLink className="w-4 h-4" />}
         >
-          <ExternalLink className="w-4 h-4" /> Overlay OBS
-        </Link>
-        <button
+          Overlay OBS
+        </Button>
+        <Button
           onClick={onClose}
-          className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg text-sm font-medium transition-colors"
+          variant="danger"
+          icon={<X className="w-4 h-4" />}
         >
           Fermer le salon
-        </button>
+        </Button>
       </div>
     </div>
   );

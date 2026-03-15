@@ -1,19 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Package, Sparkles, Trophy, Star, Zap, X } from 'lucide-react';
+import { Package, Trophy, Star, Zap, X } from 'lucide-react';
 import { Chest, ShopItem } from '../types';
 import * as LucideIcons from 'lucide-react';
 
 interface ChestOpeningProps {
   chest: Chest;
+  reward: ShopItem | null;
   onClose: () => void;
-  onReward: (item: ShopItem) => void;
   allShopItems: ShopItem[];
 }
 
-export default function ChestOpening({ chest, onClose, onReward, allShopItems }: ChestOpeningProps) {
+export default function ChestOpening({ chest, reward, onClose, allShopItems }: ChestOpeningProps) {
   const [phase, setPhase] = useState<'idle' | 'opening' | 'reward'>('idle');
-  const [reward, setReward] = useState<ShopItem | null>(null);
 
   const getIcon = (iconName: string, className: string = "w-6 h-6") => {
     const Icon = (LucideIcons as any)[iconName] || Trophy;
@@ -24,19 +23,8 @@ export default function ChestOpening({ chest, onClose, onReward, allShopItems }:
     if (phase !== 'idle') return;
     setPhase('opening');
 
-    // Logic for reward based on chest rarity
     setTimeout(() => {
-      const possibleItems = allShopItems.filter(item => chest.possibleItems.includes(item.id.toString()));
-      
-      // If no items found, fallback to any item
-      const itemsToPickFrom = possibleItems.length > 0 ? possibleItems : allShopItems;
-      
-      // Random pick
-      const randomItem = itemsToPickFrom[Math.floor(Math.random() * itemsToPickFrom.length)];
-      
-      setReward(randomItem);
       setPhase('reward');
-      onReward(randomItem);
     }, 3000);
   };
 
@@ -138,12 +126,32 @@ export default function ChestOpening({ chest, onClose, onReward, allShopItems }:
               transition={{ duration: 0.8, type: "spring" }}
               className="relative"
             >
-              <div className="absolute -inset-24 bg-purple-600/20 blur-[100px] rounded-full -z-10 animate-pulse" />
-              <div className="w-64 h-64 mx-auto bg-zinc-900 border-4 border-purple-500 rounded-[40px] flex flex-col items-center justify-center gap-4 shadow-[0_0_50px_rgba(168,85,247,0.4)]">
-                <div className="p-6 bg-purple-500/10 rounded-3xl">
-                  {getIcon(reward.icon, "w-24 h-24 text-purple-500")}
+              <div className={`absolute -inset-24 blur-[100px] rounded-full -z-10 animate-pulse ${
+                reward.type === 'attack' ? 'bg-red-600/20' : 
+                reward.type === 'defense' ? 'bg-blue-600/20' : 
+                reward.type === 'bonus' ? 'bg-green-600/20' : 
+                reward.type === 'spell' ? 'bg-yellow-600/20' : 'bg-purple-600/20'
+              }`} />
+              <div className={`w-64 h-64 mx-auto bg-zinc-900 border-4 rounded-[40px] flex flex-col items-center justify-center gap-4 shadow-2xl ${
+                reward.type === 'attack' ? 'border-red-500 shadow-red-500/40' : 
+                reward.type === 'defense' ? 'border-blue-500 shadow-blue-500/40' : 
+                reward.type === 'bonus' ? 'border-green-500 shadow-green-500/40' : 
+                reward.type === 'spell' ? 'border-yellow-500 shadow-yellow-500/40' : 'border-purple-500 shadow-purple-500/40'
+              }`}>
+                <div className={`p-6 rounded-3xl ${
+                  reward.type === 'attack' ? 'bg-red-500/10 text-red-500' : 
+                  reward.type === 'defense' ? 'bg-blue-500/10 text-blue-500' : 
+                  reward.type === 'bonus' ? 'bg-green-500/10 text-green-500' : 
+                  reward.type === 'spell' ? 'bg-yellow-500/10 text-yellow-500' : 'bg-purple-500/10 text-purple-500'
+                }`}>
+                  {getIcon(reward.icon, "w-24 h-24")}
                 </div>
-                <div className="px-4 py-1 bg-purple-500 text-[10px] font-black uppercase tracking-[0.3em] rounded-full">
+                <div className={`px-4 py-1 text-[10px] font-black uppercase tracking-[0.3em] rounded-full ${
+                  reward.type === 'attack' ? 'bg-red-500 text-white' : 
+                  reward.type === 'defense' ? 'bg-blue-500 text-white' : 
+                  reward.type === 'bonus' ? 'bg-green-500 text-white' : 
+                  reward.type === 'spell' ? 'bg-yellow-500 text-black' : 'bg-purple-500 text-white'
+                }`}>
                   {reward.type}
                 </div>
               </div>

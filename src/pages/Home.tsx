@@ -15,22 +15,26 @@ import {
   Package, 
   X, 
   Backpack,
-  Sparkles,
   Gamepad2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import * as LucideIcons from 'lucide-react';
 
-import { useData } from '../DataContext';
+import { useAuth } from '../context/AuthContext';
+import { useCatalog } from '../context/CatalogContext';
 import Logo from '../components/ui/Logo';
 import { QuizService } from '../services/QuizService';
 import ChestOpening from '../components/ChestOpening';
 import { Chest, ShopItem } from '../types';
 import { auth } from '../lib/firebase';
 
+import { PageLayout } from '../components/ui/PageLayout';
+import { Button } from '../components/ui/Button';
+
 export default function Home() {
   const navigate = useNavigate();
-  const { leaderboard, isLoaded, userProfile, shopItems, badges: allBadges, chests } = useData();
+  const { twitchUser } = useAuth();
+  const { leaderboard, isLoaded, items: shopItems, badges: allBadges, chests } = useCatalog();
   
   const [roomCode, setRoomCode] = useState('');
   const [codeDigits, setCodeDigits] = useState(['', '', '', '']);
@@ -61,9 +65,21 @@ export default function Home() {
     }
   };
   const [error, setError] = useState('');
-  const [twitchUser, setTwitchUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [openingChest, setOpeningChest] = useState<Chest | null>(null);
+  const [chestReward, setChestReward] = useState<ShopItem | null>(null);
+
+  const handleBuyChest = async (chest: Chest) => {
+    try {
+      if (!twitchUser) throw new Error('Utilisateur non connecté');
+      const wonItemId = await QuizService.buyChest(chest.id);
+      const wonItem = shopItems.find(i => i.id === wonItemId);
+      setChestReward(wonItem || null);
+      setOpeningChest(chest);
+    } catch (err: any) {
+      alert(err.message || "Erreur lors de l'achat du coffre");
+    }
+  };
 
   useEffect(() => {
     // Logo loading simulation
@@ -71,28 +87,8 @@ export default function Home() {
       setIsLoading(false);
     }, 2000);
 
-    const storedUser = localStorage.getItem('twitch_user');
-    if (storedUser) {
-      try {
-        setTwitchUser(JSON.parse(storedUser));
-      } catch (err) {
-        console.error('Error parsing twitch_user from localStorage:', err);
-        localStorage.removeItem('twitch_user');
-      }
-    }
-
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'TWITCH_AUTH_SUCCESS') {
-        const user = event.data.user;
-        localStorage.setItem('twitch_user', JSON.stringify(user));
-        setTwitchUser(user);
-      }
-    };
-    window.addEventListener('message', handleMessage);
-
     return () => {
       clearTimeout(timer);
-      window.removeEventListener('message', handleMessage);
     };
   }, [navigate]);
 
@@ -121,7 +117,8 @@ export default function Home() {
               timeLimit: 15,
               questions: [
                 {
-                  id: 'q1',
+                  index: 0,
+                  questionId: 'q1',
                   text: "Quel est le jeu préféré de Jima ?",
                   options: ["League of Legends", "Valorant", "Minecraft", "Fortnite"],
                   correctOptionIndex: 1,
@@ -129,7 +126,8 @@ export default function Home() {
                   theme: "general"
                 },
                 {
-                  id: 'q2',
+                  index: 1,
+                  questionId: 'q2',
                   text: "Combien de BrainCoins coûte un badge Légendaire ?",
                   options: ["10", "50", "100", "500"],
                   correctOptionIndex: 2,
@@ -158,7 +156,7 @@ export default function Home() {
   };
 
   return (
-    <div className="bc-page-container">
+    <PageLayout>
       <AnimatePresence mode="wait">
         {isLoading ? (
           <motion.div 
@@ -198,10 +196,9 @@ export default function Home() {
             key="main"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="bc-content-wrapper flex flex-col items-center justify-center min-h-[80vh]"
+            className="w-full flex flex-col items-center justify-center flex-1"
           >
-            {/* Decorative Background Elements */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl aspect-square bg-fuchsia-600/1 blur-[150px] rounded-full pointer-events-none" />
+            {/* Decorative Background Elements removed to prevent scroll */}
             
             <div className="relative z-10 w-full max-w-xl flex flex-col items-center">
               {/* Welcome */}
@@ -262,28 +259,26 @@ export default function Home() {
                 </motion.div>
 
                 <div className="flex flex-col items-center gap-6">
-                  <button
+                  <Button
                     type="submit"
-                    className="relative w-full max-w-xs group overflow-hidden rounded-2xl p-[2px] transition-all active:scale-95 shadow-[0_0_30px_rgba(217,70,239,0.15)] hover:shadow-[0_0_50px_rgba(217,70,239,0.3)]"
+                    variant="gradient"
+                    size="lg"
+                    icon={<Gamepad2 className="w-6 h-6" />}
+                    showArrow
+                    className="max-w-xs"
                   >
-                    <div className="absolute inset-0 bg-gradient-to-r from-fuchsia-600 via-purple-600 to-pink-600 animate-gradient-x"></div>
-                    <div className="relative bg-zinc-950 group-hover:bg-transparent transition-all py-4 rounded-[0.9rem] flex items-center justify-center gap-3">
-                      <Gamepad2 className="w-6 h-6 text-fuchsia-500 group-hover:text-white transition-colors" />
-                      <span className="text-lg font-black tracking-tighter group-hover:text-white transition-colors uppercase italic">
-                        Rejoindre l'Arène
-                      </span>
-                      <div className="absolute right-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all">
-                        <ChevronRight className="w-5 h-5 text-white" />
-                      </div>
-                    </div>
-                  </button>
+                    Rejoindre l'Arène
+                  </Button>
 
-                  <button
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="lg"
                     onClick={() => navigate('/create')}
-                    className="w-full max-w-xs bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-white py-4 rounded-2xl font-black text-lg transition-all active:scale-95 uppercase italic"
+                    className="w-full max-w-xs"
                   >
                     Créer un salon
-                  </button>
+                  </Button>
 
                   {error && (
                     <motion.div 
@@ -307,21 +302,15 @@ export default function Home() {
         {openingChest && (
           <ChestOpening
             chest={openingChest}
-            onClose={() => setOpeningChest(null)}
-            onReward={async (item) => {
-              try {
-                if (!twitchUser) throw new Error('Utilisateur non connecté');
-                await QuizService.buyChest(openingChest.id.toString());
-                await QuizService.addToInventory(item.id.toString());
-              } catch (err: any) {
-                alert(err.message || "Erreur lors de l'achat du coffre");
-                setOpeningChest(null);
-              }
+            reward={chestReward}
+            onClose={() => {
+              setOpeningChest(null);
+              setChestReward(null);
             }}
             allShopItems={shopItems}
           />
         )}
       </AnimatePresence>
-    </div>
+    </PageLayout>
   );
 }

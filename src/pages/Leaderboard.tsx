@@ -12,7 +12,7 @@ import {
   User
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useData } from '../DataContext';
+import { useCatalog } from '../context/CatalogContext';
 import { PageLayout } from '../components/ui/PageLayout';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Card } from '../components/ui/Card';
@@ -20,7 +20,7 @@ import { Card } from '../components/ui/Card';
 type RankingType = 'score' | 'coins' | 'brainCoins' | 'level';
 
 export default function Leaderboard() {
-  const { leaderboard } = useData();
+  const { leaderboard } = useCatalog();
   const [activeTab, setActiveTab] = useState<RankingType>('score');
   const [search, setSearch] = useState('');
 
@@ -43,7 +43,7 @@ export default function Leaderboard() {
   };
 
   return (
-    <PageLayout maxWidth="max-w-4xl">
+    <PageLayout>
       <PageHeader
         title="Classements"
         subtitle="Les légendes de l'arène"
@@ -88,14 +88,14 @@ export default function Leaderboard() {
       </div>
 
       {/* List */}
-      <Card className="p-0 overflow-hidden">
-        <div className="p-6 border-b border-zinc-800 bg-zinc-900/50 flex items-center text-[10px] font-black text-zinc-500 uppercase tracking-widest">
+      <Card className="p-0 overflow-hidden flex flex-col flex-1 min-h-0">
+        <div className="p-6 border-b border-zinc-800 bg-zinc-900/50 flex items-center text-[10px] font-black text-zinc-500 uppercase tracking-widest shrink-0">
           <div className="w-12">Rang</div>
           <div className="flex-1">Joueur</div>
           <div className="w-32 text-right">Valeur</div>
         </div>
 
-        <div className="divide-y divide-zinc-800/50">
+        <div className="divide-y divide-zinc-800/50 overflow-y-auto custom-scrollbar flex-1">
           {sortedData.map((user, index) => (
             <motion.div
               initial={{ opacity: 0, x: -20 }}
@@ -108,8 +108,12 @@ export default function Leaderboard() {
                 {index + 1}
               </div>
               <div className="flex-1 flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center relative">
-                  <User className="w-5 h-5 text-zinc-500" />
+                <div className="w-10 h-10 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center relative overflow-hidden">
+                  {user.avatarUrl ? (
+                    <img src={user.avatarUrl} alt={user.username} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  ) : (
+                    <User className="w-5 h-5 text-zinc-500" />
+                  )}
                   {index < 3 && (
                     <Medal className={`absolute -top-2 -right-2 w-5 h-5 ${getRankColor(index)}`} />
                   )}

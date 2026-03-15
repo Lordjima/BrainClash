@@ -14,14 +14,14 @@ import {
   Timestamp,
   deleteDoc
 } from 'firebase/firestore';
-import { db, auth } from '../lib/firebase';
-import { RoomState, Question, GlobalLeaderboardEntry, ShopItem, Chest } from '../types';
+import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
+import { Room, RoomParticipant, RoomQuestion, Question, PublicProfile, UserStats, UserWallet } from '../types';
+import { RoomService } from './RoomService';
+import { WalletService } from './WalletService';
+import { InventoryService } from './InventoryService';
+import { UserService } from './UserService';
 
 export class QuizService {
-  private static ROOMS_COLLECTION = 'rooms';
-  private static PROFILES_COLLECTION = 'profiles';
-  private static QUESTIONS_COLLECTION = 'questions';
-
   /**
    * Create a new quiz room
    */
@@ -32,331 +32,237 @@ export class QuizService {
     timeLimit: number,
     questions: Question[]
   }): Promise<string> {
-    const code = Math.random().toString(36).substring(2, 6).toUpperCase();
-    const roomRef = doc(db, this.ROOMS_COLLECTION, code);
-
-    const roomState: RoomState = {
-      id: code,
-      name: quizData.name,
-      description: quizData.description,
-      theme: quizData.theme,
-      timeLimit: quizData.timeLimit,
-      hostId: auth.currentUser?.uid || 'anonymous',
-      status: 'lobby',
-      players: {},
-      questions: quizData.questions,
-      currentQuestionIndex: 0,
-      questionStartTime: null,
-      showAnswer: false
-    };
-
-    await setDoc(roomRef, roomState);
-    return code;
-  }
-
-  /**
-   * Create a room with a specific code
-   */
-  static async createRoomWithCode(code: string, quizData: { 
-    name: string, 
-    description: string, 
-    theme: string, 
-    timeLimit: number,
-    questions: Question[]
-  }): Promise<void> {
-    const roomRef = doc(db, this.ROOMS_COLLECTION, code);
-
-    const roomState: RoomState = {
-      id: code,
-      name: quizData.name,
-      description: quizData.description,
-      theme: quizData.theme,
-      timeLimit: quizData.timeLimit,
-      hostId: auth.currentUser?.uid || 'anonymous',
-      status: 'lobby',
-      players: {},
-      questions: quizData.questions,
-      currentQuestionIndex: 0,
-      questionStartTime: null,
-      showAnswer: false
-    };
-
-    await setDoc(roomRef, roomState);
+    return RoomService.createRoom(quizData);
   }
 
   /**
    * Join a room
    */
-  static async joinRoom(roomCode: string, username: string, avatar?: string): Promise<void> {
-    const user = auth.currentUser;
-    if (!user) throw new Error('Authentication required');
-
-    const roomRef = doc(db, this.ROOMS_COLLECTION, roomCode);
-    const roomSnap = await getDoc(roomRef);
-
-    if (!roomSnap.exists()) throw new Error('Room not found');
-
-    const playerData = {
-      id: user.uid,
+  static async joinRoom(roomCode: string, username: string, avatarUrl?: string): Promise<void> {
+    const profile = {
       username,
-      avatar: avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
-      score: 0,
-      color: '#' + Math.floor(Math.random()*16777215).toString(16),
-      hasAnswered: false,
-      level: 1
+      avatarUrl: avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`
     };
-
-    await updateDoc(roomRef, {
-      [`players.${user.uid}`]: playerData
-    });
+    return RoomService.joinRoom(roomCode, profile);
   }
 
   /**
    * Submit an answer
    */
-  static async submitAnswer(roomCode: string, answerIndex: number): Promise<void> {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    const roomRef = doc(db, this.ROOMS_COLLECTION, roomCode);
-    const roomSnap = await getDoc(roomRef);
-    if (!roomSnap.exists()) return;
-
-    const room = roomSnap.data() as RoomState;
-    if (room.status !== 'active' || room.showAnswer) return;
-
-    const currentQ = room.questions[room.currentQuestionIndex];
-    const isCorrect = answerIndex === currentQ.correctOptionIndex;
-    
-    let points = 0;
-    if (isCorrect && room.questionStartTime) {
-      const timeElapsed = Date.now() - room.questionStartTime;
-      const timeLeft = Math.max(0, currentQ.timeLimit * 1000 - timeElapsed);
-      const speedBonus = Math.floor((timeLeft / (currentQ.timeLimit * 1000)) * 100);
-      points = 100 + speedBonus;
-    }
-
-    await updateDoc(roomRef, {
-      [`players.${user.uid}.hasAnswered`]: true,
-      [`players.${user.uid}.isCorrect`]: isCorrect,
-      [`players.${user.uid}.score`]: increment(points)
-    });
+  static async submitAnswer(roomCode: string, questionIndex: number, answerIndex: number): Promise<void> {
+    return RoomService.submitAnswer(roomCode, questionIndex, answerIndex);
   }
 
   /**
-   * Reset room to lobby state (Host only)
-   */
-  static async resetRoom(roomCode: string): Promise<void> {
-    const roomRef = doc(db, this.ROOMS_COLLECTION, roomCode);
-    const roomSnap = await getDoc(roomRef);
-    if (!roomSnap.exists()) return;
-    const room = roomSnap.data() as RoomState;
-
-    await updateDoc(roomRef, {
-      status: 'lobby',
-      currentQuestionIndex: 0,
-      questionStartTime: null,
-      showAnswer: false,
-      ...Object.keys(room.players).reduce((acc, uid) => ({
-        ...acc,
-        [`players.${uid}.hasAnswered`]: false,
-        [`players.${uid}.isCorrect`]: false,
-        [`players.${uid}.score`]: 0
-      }), {})
-    });
-  }
-
-  /**
-   * Finish the game and update global profiles
+   * Finish the game and update player stats/wallet
    */
   static async finishGame(roomCode: string): Promise<void> {
-    const roomRef = doc(db, this.ROOMS_COLLECTION, roomCode);
-    const roomSnap = await getDoc(roomRef);
-    if (!roomSnap.exists()) return;
-
-    const room = roomSnap.data() as RoomState;
-    if (room.status === 'finished') return; // Already finished
-
-    // Update room status
-    await updateDoc(roomRef, { status: 'finished' });
-
-    // Update global profiles for all players
-    for (const [uid, player] of Object.entries(room.players)) {
-      const profileRef = doc(db, this.PROFILES_COLLECTION, uid);
-      const profileSnap = await getDoc(profileRef);
-
-      if (profileSnap.exists()) {
-        await updateDoc(profileRef, {
-          score: increment(player.score),
-          games_played: increment(1),
-          coins: increment(Math.floor(player.score / 10)), // Example: 1 coin per 10 points
-          brainCoins: increment(Math.floor(player.score / 100)) // Example: 1 brainCoin per 100 points
-        });
-      } else {
-        // Create profile if it doesn't exist
-        await setDoc(profileRef, {
-          username: player.username,
-          score: player.score,
-          games_played: 1,
-          date: Date.now(),
-          coins: Math.floor(player.score / 10),
-          brainCoins: Math.floor(player.score / 100),
-          is_sub: false,
-          badges: [],
-          inventory: [],
-          level: 1,
-          xp: player.score
-        });
-      }
-    }
-  }
-  static async nextQuestion(roomCode: string): Promise<void> {
-    const roomRef = doc(db, this.ROOMS_COLLECTION, roomCode);
-    const roomSnap = await getDoc(roomRef);
-    if (!roomSnap.exists()) return;
-
-    const room = roomSnap.data() as RoomState;
-    const nextIndex = room.currentQuestionIndex + 1;
-
-    if (nextIndex < room.questions.length) {
-      await updateDoc(roomRef, {
-        currentQuestionIndex: nextIndex,
-        questionStartTime: Date.now(),
-        showAnswer: false,
-        // Reset player answered status
-        ...Object.keys(room.players).reduce((acc, uid) => ({
-          ...acc,
-          [`players.${uid}.hasAnswered`]: false,
-          [`players.${uid}.isCorrect`]: false
-        }), {})
-      });
-    } else {
-      await this.finishGame(roomCode);
+    const roomRef = doc(db, 'rooms', roomCode);
+    try {
+      await updateDoc(roomRef, { status: 'finished', updatedAt: Date.now() });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `rooms/${roomCode}`);
     }
   }
 
   /**
-   * Inventory Management
+   * Remove an item from user inventory
    */
-  static async addToInventory(itemId: string): Promise<void> {
-    const user = auth.currentUser;
-    if (!user) throw new Error('Authentication required');
-    if (user.isAnonymous) throw new Error('Veuillez vous connecter avec Twitch pour utiliser cette fonctionnalité');
-
-    const profileRef = doc(db, this.PROFILES_COLLECTION, user.uid);
-    const profileSnap = await getDoc(profileRef);
-
-    if (profileSnap.exists()) {
-      const profile = profileSnap.data() as GlobalLeaderboardEntry;
-      if ((profile.inventory || []).length >= 15) {
-        throw new Error('Inventaire plein (15 emplacements max)');
-      }
-      await updateDoc(profileRef, {
-        inventory: arrayUnion(itemId)
-      });
-    } else {
-      // Create profile if it doesn't exist
-      await setDoc(profileRef, {
-        username: user.displayName || 'Anonyme',
-        score: 0,
-        games_played: 0,
-        date: Date.now(),
-        coins: 0,
-        brainCoins: 0,
-        is_sub: false,
-        badges: [],
-        inventory: [itemId],
-        level: 1,
-        xp: 0
-      });
-    }
-  }
-
   static async removeFromInventory(itemId: string): Promise<void> {
     const user = auth.currentUser;
     if (!user) return;
-
-    const profileRef = doc(db, this.PROFILES_COLLECTION, user.uid);
-    await updateDoc(profileRef, {
-      inventory: arrayRemove(itemId)
-    });
+    return InventoryService.removeItem(user.uid, itemId);
   }
 
-  static async triggerEffect(roomId: string, type: string, sourceName: string, duration: number = 10000): Promise<void> {
+  /**
+   * Trigger an effect in a room
+   */
+  static async triggerEffect(roomCode: string, type: string, sourceName: string, duration?: number): Promise<void> {
+    return RoomService.triggerEffect(roomCode, type, sourceName, duration);
+  }
+
+  /**
+   * Process rewards for a player after a game
+   */
+  static async processRewards(roomCode: string): Promise<void> {
     const user = auth.currentUser;
     if (!user) return;
 
-    const roomRef = doc(db, this.ROOMS_COLLECTION, roomId);
-    const effect = {
-      id: Math.random().toString(36).substring(2, 9),
-      type,
-      sourceId: user.uid,
-      sourceName,
-      createdAt: Date.now(),
-      duration
-    };
+    const participantRef = doc(db, `rooms/${roomCode}/participants`, user.uid);
+    const participantSnap = await getDoc(participantRef);
+    if (!participantSnap.exists()) return;
+    const participant = participantSnap.data() as RoomParticipant;
 
-    await updateDoc(roomRef, {
-      activeEffects: arrayUnion(effect)
+    // 1. Update Stats
+    const statsRef = doc(db, `users/${user.uid}/stats`, 'global');
+    await updateDoc(statsRef, {
+      scoreTotal: increment(participant.score),
+      gamesPlayed: increment(1),
+      xp: increment(participant.score),
+      updatedAt: Date.now()
     });
+
+    // 2. Update Wallet
+    const coinsToAdd = participant.score;
+    const brainCoinsToAdd = Math.floor(participant.score / 10);
+    
+    if (coinsToAdd > 0) {
+      await WalletService.updateBalance(
+        user.uid, 
+        coinsToAdd, 
+        'coins', 
+        'game_reward', 
+        `Récompense pour la partie ${roomCode}`
+      );
+    }
+    
+    if (brainCoinsToAdd > 0) {
+      await WalletService.updateBalance(
+        user.uid, 
+        brainCoinsToAdd, 
+        'brainCoins', 
+        'game_reward', 
+        `Bonus BrainCoins pour la partie ${roomCode}`
+      );
+    }
+
+    // 3. Record Game Result
+    const gameResultRef = doc(db, `users/${user.uid}/gameResults`, roomCode);
+    await setDoc(gameResultRef, {
+      roomId: roomCode,
+      score: participant.score,
+      timestamp: Date.now()
+    });
+
+    // 4. Update Leaderboard
+    const [profileSnap, statsSnap, walletSnap] = await Promise.all([
+      getDoc(doc(db, `users/${user.uid}/public`, 'profile')),
+      getDoc(doc(db, `users/${user.uid}/stats`, 'global')),
+      getDoc(doc(db, `users/${user.uid}/wallet`, 'main'))
+    ]);
+
+    if (profileSnap.exists() && statsSnap.exists() && walletSnap.exists()) {
+      const profile = profileSnap.data() as PublicProfile;
+      const stats = statsSnap.data() as UserStats;
+      const wallet = walletSnap.data() as UserWallet;
+
+      await setDoc(doc(db, 'leaderboard', user.uid), {
+        username: profile.username,
+        avatarUrl: profile.avatarUrl,
+        level: stats.level,
+        score: stats.scoreTotal,
+        coins: wallet.coins,
+        brainCoins: wallet.brainCoins,
+        updatedAt: Date.now()
+      }, { merge: true });
+    }
   }
 
   /**
-   * Buy an item from the shop
+   * Create a room with a specific code
    */
-  static async buyItem(itemId: string, price: number): Promise<void> {
-    const user = auth.currentUser;
-    if (!user) throw new Error('Authentication required');
-
-    const profileRef = doc(db, this.PROFILES_COLLECTION, user.uid);
-    const profileSnap = await getDoc(profileRef);
-    if (!profileSnap.exists()) throw new Error('Profile not found');
-
-    const profile = profileSnap.data() as GlobalLeaderboardEntry;
-
-    if (profile.coins < price) {
-      throw new Error('Pas assez de coins');
-    }
-
-    if ((profile.inventory || []).length >= 15) {
-      throw new Error('Inventaire plein (15 emplacements max)');
-    }
-
-    await updateDoc(profileRef, {
-      coins: increment(-price),
-      inventory: arrayUnion(itemId)
-    });
+  static async createRoomWithCode(roomCode: string, quizData: {
+    name: string,
+    description: string,
+    theme: string,
+    timeLimit: number,
+    questions: Question[]
+  }): Promise<void> {
+    return RoomService.createRoomWithCode(roomCode, quizData);
   }
-  static async buyChest(chestId: string): Promise<void> {
+
+  /**
+   * Move to the next question
+   */
+  static async nextQuestion(roomCode: string): Promise<void> {
+    return RoomService.nextQuestion(roomCode);
+  }
+
+  /**
+   * Reset a room
+   */
+  static async resetRoom(roomCode: string): Promise<void> {
+    return RoomService.resetRoom(roomCode);
+  }
+
+  /**
+   * Close a room
+   */
+  static async closeRoom(roomCode: string): Promise<void> {
+    return RoomService.closeRoom(roomCode);
+  }
+
+  /**
+   * Buy a chest
+   */
+  static async buyChest(chestId: string): Promise<string | null> {
     const user = auth.currentUser;
-    if (!user) throw new Error('Authentication required');
-
-    const profileRef = doc(db, this.PROFILES_COLLECTION, user.uid);
-    const profileSnap = await getDoc(profileRef);
-    if (!profileSnap.exists()) throw new Error('Profile not found');
-
-    const chestRef = doc(db, 'chests', chestId);
-    const chestSnap = await getDoc(chestRef);
+    if (!user) throw new Error('User not authenticated');
+    
+    // This logic should ideally be in a dedicated service, but for now:
+    const chestSnap = await getDoc(doc(db, 'catalogChests', chestId));
     if (!chestSnap.exists()) throw new Error('Chest not found');
-
-    const profile = profileSnap.data() as GlobalLeaderboardEntry;
-    const chest = chestSnap.data() as Chest;
-
-    if (profile.coins < chest.price) {
-      throw new Error('Pas assez de coins');
+    const chest = chestSnap.data();
+    
+    await WalletService.updateBalance(
+      user.uid,
+      -chest.price,
+      chest.currency,
+      'shop_purchase',
+      `Achat de coffre: ${chest.name}`
+    );
+    
+    let wonItem = null;
+    // Add items from chest to inventory (simplified logic)
+    if (chest.possibleItems && chest.possibleItems.length > 0) {
+      wonItem = chest.possibleItems[Math.floor(Math.random() * chest.possibleItems.length)];
+      await InventoryService.addItem(user.uid, wonItem, 'chest', chestId);
     }
 
-    await updateDoc(profileRef, {
-      coins: increment(-chest.price)
-    });
+    // Update Leaderboard
+    const walletSnap = await getDoc(doc(db, `users/${user.uid}/wallet`, 'main'));
+    if (walletSnap.exists()) {
+      const wallet = walletSnap.data() as UserWallet;
+      await updateDoc(doc(db, 'leaderboard', user.uid), {
+        coins: wallet.coins,
+        brainCoins: wallet.brainCoins,
+        updatedAt: Date.now()
+      });
+    }
+
+    return wonItem;
   }
 
   /**
-   * Get User Profile
+   * Buy an item
    */
-  static async getUserProfile(uid: string): Promise<GlobalLeaderboardEntry | null> {
-    const profileRef = doc(db, this.PROFILES_COLLECTION, uid);
-    const snap = await getDoc(profileRef);
-    return snap.exists() ? (snap.data() as GlobalLeaderboardEntry) : null;
+  static async buyItem(itemId: string): Promise<void> {
+    const user = auth.currentUser;
+    if (!user) throw new Error('User not authenticated');
+    
+    const itemSnap = await getDoc(doc(db, 'catalogItems', itemId));
+    if (!itemSnap.exists()) throw new Error('Item not found');
+    const item = itemSnap.data();
+    
+    await WalletService.updateBalance(
+      user.uid,
+      -item.price,
+      item.currency,
+      'shop_purchase',
+      `Achat d'objet: ${item.name}`
+    );
+    
+    await InventoryService.addItem(user.uid, itemId, 'shop', itemId);
+
+    // Update Leaderboard
+    const walletSnap = await getDoc(doc(db, `users/${user.uid}/wallet`, 'main'));
+    if (walletSnap.exists()) {
+      const wallet = walletSnap.data() as UserWallet;
+      await updateDoc(doc(db, 'leaderboard', user.uid), {
+        coins: wallet.coins,
+        brainCoins: wallet.brainCoins,
+        updatedAt: Date.now()
+      });
+    }
   }
 }

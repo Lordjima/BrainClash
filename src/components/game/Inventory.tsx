@@ -13,6 +13,7 @@ export default function Inventory({ inventory, onUseItem }: InventoryProps) {
       case 'seisme': return <Zap className="w-5 h-5" />;
       case 'inversion': return <RefreshCcw className="w-5 h-5" />;
       case 'bouclier': return <Shield className="w-5 h-5" />;
+      case 'gel': return <Zap className="w-5 h-5 text-blue-300" />;
       default: return <PackageOpen className="w-5 h-5" />;
     }
   };

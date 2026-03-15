@@ -2,38 +2,26 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { db } from '../lib/firebase';
-import { RoomState, Player } from '../types';
+import { useRoom } from '../context/RoomContext';
 import Logo from '../components/ui/Logo';
 import { QuizService } from '../services/QuizService';
 import { updateDoc } from 'firebase/firestore';
 
 export default function Overlay() {
   const { id } = useParams<{ id: string }>();
-  const [room, setRoom] = useState<RoomState | null>(null);
+  const { room, loading } = useRoom();
   const [timeLeft, setTimeLeft] = useState(0);
   const [nextQuestionTimeLeft, setNextQuestionTimeLeft] = useState(10000);
   const [itemNotification, setItemNotification] = useState<{ username: string, itemId: string } | null>(null);
 
   useEffect(() => {
-    if (!id) return;
-    const roomRef = doc(db, 'rooms', id);
-    const unsubscribe = onSnapshot(roomRef, (doc) => {
-      if (doc.exists()) {
-        const updatedRoom = doc.data() as RoomState;
-        setRoom(updatedRoom);
-        if (!updatedRoom.showAnswer) {
-          setNextQuestionTimeLeft(10000);
-        } else {
-          setNextQuestionTimeLeft(5000); // Match server's 5s delay
-        }
-      } else {
-        setRoom(null);
-      }
-    });
-    return () => unsubscribe();
-  }, [id]);
+    if (!room) return;
+    if (!room.showAnswer) {
+      setNextQuestionTimeLeft(10000);
+    } else {
+      setNextQuestionTimeLeft(5000); // Match server's 5s delay
+    }
+  }, [room]);
 
   useEffect(() => {
     let timer: any;
@@ -117,7 +105,7 @@ export default function Overlay() {
     }
   }, [room?.status, id]);
 
-  if (!room) return <div className="w-full h-full bg-transparent" />;
+  if (loading || !room) return <div className="w-full h-full bg-transparent" />;
 
   const sortedLeaderboard = (Object.values(room.players) as Player[])
     .sort((a, b) => b.score - a.score)

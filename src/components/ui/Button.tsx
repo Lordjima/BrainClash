@@ -1,37 +1,68 @@
-import React, { ButtonHTMLAttributes } from 'react';
+import React, { ElementType } from 'react';
+import { ChevronRight } from 'lucide-react';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'gradient';
   size?: 'sm' | 'md' | 'lg';
   children?: React.ReactNode;
   className?: string;
-  onClick?: any;
+  icon?: React.ReactNode;
+  showArrow?: boolean;
+  as?: any;
+  to?: string;
+  target?: string;
+  onClick?: (e: any) => void | Promise<void>;
+  type?: 'button' | 'submit' | 'reset';
   disabled?: boolean;
-  type?: any;
+  key?: any;
 }
 
-export function Button({ variant = 'primary', size = 'md', className, children, ...props }: ButtonProps) {
-  const baseClasses = "font-black uppercase tracking-widest transition-all active:scale-95 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none";
+export function Button({ variant = 'primary', size = 'md', className = '', children, icon, showArrow = false, as: Component = 'button', ...props }: ButtonProps) {
+  const baseClasses = "relative group overflow-hidden transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50 disabled:pointer-events-none";
   
+  if (variant === 'gradient') {
+    return (
+      <Component 
+        className={`${baseClasses} w-full rounded-2xl p-[2px] shadow-[0_0_30px_rgba(217,70,239,0.15)] hover:shadow-[0_0_50px_rgba(217,70,239,0.3)] ${className}`}
+        {...props as any}
+      >
+        <div className="absolute inset-0 bg-gradient-to-r from-fuchsia-600 via-purple-600 to-pink-600 animate-gradient-x"></div>
+        <div className={`relative bg-zinc-950 group-hover:bg-transparent transition-all w-full rounded-[0.9rem] flex items-center justify-center gap-3 ${size === 'lg' ? 'py-4' : size === 'sm' ? 'py-2' : 'py-3'}`}>
+          {icon && <span className="text-fuchsia-500 group-hover:text-white transition-colors">{icon}</span>}
+          <span className={`font-black tracking-tighter group-hover:text-white transition-colors uppercase italic ${size === 'lg' ? 'text-lg' : size === 'sm' ? 'text-xs' : 'text-sm'}`}>
+            {children}
+          </span>
+          {showArrow && (
+            <div className="absolute right-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all">
+              <ChevronRight className="w-5 h-5 text-white" />
+            </div>
+          )}
+        </div>
+      </Component>
+    );
+  }
+
   const variants = {
-    primary: "bg-fuchsia-600 hover:bg-fuchsia-500 text-white shadow-lg shadow-fuchsia-600/20 disabled:bg-zinc-800 disabled:text-zinc-500 disabled:shadow-none",
-    secondary: "bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700",
+    primary: "bg-fuchsia-600 hover:bg-fuchsia-500 text-white shadow-lg shadow-fuchsia-500/20",
+    secondary: "bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-white",
     danger: "bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20",
     ghost: "bg-transparent hover:bg-zinc-800 text-zinc-400 hover:text-white",
   };
 
   const sizes = {
-    sm: "px-4 py-2 text-[10px]",
-    md: "px-6 py-2.5 text-xs",
-    lg: "px-8 py-4 text-sm",
+    sm: "px-4 py-2 text-[10px] rounded-xl",
+    md: "px-6 py-3 text-xs rounded-2xl",
+    lg: "px-8 py-4 text-lg rounded-2xl",
   };
 
   return (
-    <button 
-      className={`${baseClasses} ${variants[variant]} ${sizes[size]} ${className || ''}`}
-      {...props}
+    <Component 
+      className={`${baseClasses} font-black uppercase tracking-widest ${variants[variant]} ${sizes[size]} ${className}`}
+      {...props as any}
     >
+      {icon && <span>{icon}</span>}
       {children}
-    </button>
+      {showArrow && <ChevronRight className="w-5 h-5" />}
+    </Component>
   );
 }

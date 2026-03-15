@@ -1,21 +1,16 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { motion, AnimatePresence } from 'motion/react';
 import { 
   Award, 
-  ShoppingBag, 
+  Gavel, 
   Store, 
   Trophy, 
   ChevronRight,
-  Coins,
-  Zap,
-  Star,
-  TrendingUp,
-  X,
   LayoutGrid,
   User,
   Info
 } from 'lucide-react';
+import { Modal } from '../ui/Modal';
 
 interface MenuModalProps {
   isOpen: boolean;
@@ -35,7 +30,7 @@ export default function MenuModal({ isOpen, onClose }: MenuModalProps) {
     },
     {
       title: "Enchères",
-      icon: ShoppingBag,
+      icon: Gavel,
       color: "text-amber-500",
       bg: "bg-amber-500/10",
       border: "border-amber-500/20",
@@ -71,102 +66,42 @@ export default function MenuModal({ isOpen, onClose }: MenuModalProps) {
     }
   ];
 
-  const rankings = [
-    { title: "Points", icon: TrendingUp, color: "text-blue-500" },
-    { title: "Coins", icon: Coins, color: "text-amber-500" },
-    { title: "BrainCoins", icon: Zap, color: "text-fuchsia-500" },
-    { title: "Niveau", icon: Star, color: "text-yellow-500" }
-  ];
-
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-xl p-4 md:p-6"
-        >
-          <motion.div
-            initial={{ scale: 0.9, y: 20 }}
-            animate={{ scale: 1, y: 0 }}
-            exit={{ scale: 0.9, y: 20 }}
-            className="w-full max-w-4xl bg-zinc-900 border border-zinc-800 rounded-[40px] p-8 md:p-12 relative overflow-y-auto custom-scrollbar max-h-[90vh] shadow-2xl"
+    <Modal isOpen={isOpen} onClose={onClose} maxWidth="max-w-4xl" className="p-8 md:p-12 rounded-[40px]">
+      <div className="flex items-center justify-between mb-12">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-fuchsia-600/10 rounded-2xl flex items-center justify-center border border-fuchsia-600/20">
+            <LayoutGrid className="w-6 h-6 text-fuchsia-500" />
+          </div>
+          <div>
+            <h2 className="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">Menu Principal</h2>
+            <p className="text-zinc-500 text-[10px] font-black uppercase tracking-widest mt-2">Arena Royale Navigation</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+        {menuItems.map((item, i) => (
+          <div
+            key={item.title}
+            className="animate-in fade-in slide-in-from-bottom-4"
+            style={{ animationDelay: `${i * 100}ms`, animationFillMode: 'both' }}
           >
-            <div className="flex items-center justify-between mb-12">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-fuchsia-600/10 rounded-2xl flex items-center justify-center border border-fuchsia-600/20">
-                  <LayoutGrid className="w-6 h-6 text-fuchsia-500" />
-                </div>
-                <div>
-                  <h2 className="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">Menu Principal</h2>
-                  <p className="text-zinc-500 text-[10px] font-black uppercase tracking-widest mt-2">Arena Royale Navigation</p>
-                </div>
+            <Link 
+              to={item.link}
+              onClick={onClose}
+              className={`group block p-8 rounded-[40px] border-2 ${item.border} ${item.bg} hover:scale-[1.02] transition-all relative overflow-hidden shadow-xl`}
+            >
+              <div className="relative z-10">
+                <item.icon className={`w-12 h-12 ${item.color} mb-6`} />
+                <h3 className="text-2xl font-black uppercase italic text-white">{item.title}</h3>
+                <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mt-2">{item.desc}</p>
               </div>
-              <button
-                onClick={onClose}
-                className="p-3 hover:bg-zinc-800 rounded-2xl transition-colors group"
-              >
-                <X className="w-7 h-7 text-zinc-500 group-hover:text-white" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-              {menuItems.map((item, i) => (
-                <motion.div
-                  key={item.title}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.1 }}
-                >
-                  <Link 
-                    to={item.link}
-                    onClick={onClose}
-                    className={`group block p-8 rounded-[40px] border-2 ${item.border} ${item.bg} hover:scale-[1.02] transition-all relative overflow-hidden shadow-xl`}
-                  >
-                    <div className="relative z-10">
-                      <item.icon className={`w-12 h-12 ${item.color} mb-6`} />
-                      <h3 className="text-2xl font-black uppercase italic text-white">{item.title}</h3>
-                      <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mt-2">{item.desc}</p>
-                    </div>
-                    <ChevronRight className="absolute right-8 top-1/2 -translate-y-1/2 w-8 h-8 text-zinc-800/50 group-hover:text-white group-hover:translate-x-2 transition-all" />
-                  </Link>
-                </motion.div>
-              ))}
-            </div>
-
-            <div className="space-y-8">
-              <div className="flex items-center gap-6">
-                <div className="w-12 h-12 bg-yellow-500/10 rounded-2xl flex items-center justify-center border border-yellow-500/20">
-                  <Trophy className="w-6 h-6 text-yellow-500" />
-                </div>
-                <h2 className="text-2xl font-black uppercase italic text-white">Classements</h2>
-                <div className="flex-1 h-px bg-zinc-800/50" />
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {rankings.map((rank, i) => (
-                  <motion.div
-                    key={rank.title}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.3 + i * 0.1 }}
-                  >
-                    <Link 
-                      to="/leaderboard"
-                      onClick={onClose}
-                      className="group block p-8 rounded-[32px] bg-zinc-900/40 backdrop-blur-md border border-zinc-800 hover:border-fuchsia-500/30 transition-all text-center shadow-lg"
-                    >
-                      <rank.icon className={`w-10 h-10 ${rank.color} mx-auto mb-4 group-hover:scale-110 transition-transform`} />
-                      <div className="text-[10px] font-black uppercase tracking-widest text-zinc-400 group-hover:text-white transition-colors">{rank.title}</div>
-                    </Link>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+              <ChevronRight className="absolute right-8 top-1/2 -translate-y-1/2 w-8 h-8 text-zinc-800/50 group-hover:text-white group-hover:translate-x-2 transition-all" />
+            </Link>
+          </div>
+        ))}
+      </div>
+    </Modal>
   );
 }

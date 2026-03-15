@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { collection, onSnapshot, doc, deleteDoc, addDoc } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { Check, X, Inbox, User } from 'lucide-react';
-import { SubmittedQuestion, Theme } from '../types';
+import { useCatalog } from '../context/CatalogContext';
+import { SubmittedQuestion } from '../types';
 import { PageLayout } from '../components/ui/PageLayout';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Card } from '../components/ui/Card';
@@ -12,7 +13,7 @@ import { Badge } from '../components/ui/Badge';
 export default function ReviewQuestions() {
   const [questions, setQuestions] = useState<SubmittedQuestion[]>([]);
   const [loading, setLoading] = useState(true);
-  const [themes, setThemes] = useState<Record<string, Theme>>({});
+  const { themes } = useCatalog();
 
   useEffect(() => {
     const unsubscribeQuestions = onSnapshot(collection(db, 'pendingQuestions'), (snapshot) => {
@@ -24,20 +25,8 @@ export default function ReviewQuestions() {
       setLoading(false);
     });
 
-    const unsubscribeThemes = onSnapshot(collection(db, 'themes'), (snapshot) => {
-      const themesMap: Record<string, Theme> = {};
-      snapshot.docs.forEach(doc => {
-        const theme = doc.data() as Theme;
-        themesMap[doc.id] = theme;
-      });
-      setThemes(themesMap);
-    }, (err) => {
-      console.error('Themes error:', err);
-    });
-
     return () => {
       unsubscribeQuestions();
-      unsubscribeThemes();
     };
   }, []);
 
@@ -49,7 +38,7 @@ export default function ReviewQuestions() {
       // Add to approved questions collection
       const question = questions.find(q => q.id === id);
       if (question) {
-        await addDoc(collection(db, 'questions'), { ...question, approvedBy: user.displayName || 'Admin' });
+        await addDoc(collection(db, 'questionBank'), { ...question, approvedBy: user.displayName || 'Admin' });
       }
     }
     
@@ -58,7 +47,7 @@ export default function ReviewQuestions() {
   };
 
   return (
-    <PageLayout maxWidth="max-w-4xl">
+    <PageLayout>
       <PageHeader
         title="Vérification des questions"
         subtitle="Validez les questions proposées par la communauté"

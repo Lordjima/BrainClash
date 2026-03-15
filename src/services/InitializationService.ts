@@ -1,37 +1,48 @@
 import { collection, getDocs, setDoc, doc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { INITIAL_SHOP_ITEMS, INITIAL_BADGES, INITIAL_CHESTS } from '../data/initialData';
 
 export class InitializationService {
   static async initializeDatabase() {
     try {
-      // Initialize Shop Items
-      const shopSnap = await getDocs(collection(db, 'shopItems'));
-      if (shopSnap.empty) {
-        console.log('Initializing shop items...');
-        for (const item of INITIAL_SHOP_ITEMS) {
-          await setDoc(doc(db, 'shopItems', item.id.toString()), item);
+      console.log('Updating catalog items...');
+      for (const item of INITIAL_SHOP_ITEMS) {
+        try {
+          await setDoc(doc(db, 'catalogItems', String(item.id)), {
+            ...item,
+            active: item.active ?? true,
+            createdAt: item.createdAt ?? Date.now(),
+            updatedAt: Date.now(),
+          });
+        } catch (error) {
+          handleFirestoreError(error, OperationType.WRITE, `catalogItems/${item.id}`);
         }
       }
 
-      // Initialize Badges
-      const badgesSnap = await getDocs(collection(db, 'badges'));
+      const badgesSnap = await getDocs(collection(db, 'catalogBadges'));
       if (badgesSnap.empty) {
-        console.log('Initializing badges...');
+        console.log('Initializing catalog badges...');
         for (const badge of INITIAL_BADGES) {
-          await setDoc(doc(db, 'badges', badge.id.toString()), badge);
+          try {
+            await setDoc(doc(db, 'catalogBadges', String(badge.id)), badge);
+          } catch (error) {
+            handleFirestoreError(error, OperationType.WRITE, `catalogBadges/${badge.id}`);
+          }
         }
       }
 
-      // Initialize Chests
-      const chestsSnap = await getDocs(collection(db, 'chests'));
-      if (chestsSnap.empty) {
-        console.log('Initializing chests...');
-        for (const chest of INITIAL_CHESTS) {
-          await setDoc(doc(db, 'chests', chest.id.toString()), chest);
+      console.log('Updating catalog chests...');
+      for (const chest of INITIAL_CHESTS) {
+        try {
+          await setDoc(doc(db, 'catalogChests', String(chest.id)), {
+            ...chest,
+            active: chest.active ?? true,
+          });
+        } catch (error) {
+          handleFirestoreError(error, OperationType.WRITE, `catalogChests/${chest.id}`);
         }
       }
-      
+
       console.log('Database initialization complete.');
     } catch (error) {
       console.error('Error initializing database:', error);

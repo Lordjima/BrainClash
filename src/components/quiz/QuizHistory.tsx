@@ -1,6 +1,8 @@
 import React from 'react';
 import { Trash2, Play } from 'lucide-react';
 import { SavedQuiz } from '../../types';
+import { Button } from '../ui/Button';
+import { Badge } from '../ui/Badge';
 
 interface QuizHistoryProps {
   savedQuizzes: SavedQuiz[];
@@ -39,24 +41,25 @@ export default function QuizHistory({
             </div>
             
             <div className="flex items-center gap-3 text-xs font-mono">
-              <span className="bg-violet-500/10 text-violet-400 px-3 py-1.5 rounded-lg border border-violet-500/20">
+              <Badge variant="fuchsia">
                 {themes[quiz.theme]?.name || quiz.theme}
-              </span>
-              <span className="bg-zinc-700/50 text-zinc-300 px-3 py-1.5 rounded-lg border border-zinc-600/50">
+              </Badge>
+              <Badge variant="zinc">
                 {quiz.timeLimit}s
-              </span>
+              </Badge>
               <span className="text-zinc-500 ml-auto">
                 {new Date(quiz.createdAt).toLocaleDateString()}
               </span>
             </div>
 
-            <button
+            <Button
               onClick={() => onLaunch(quiz)}
-              className="w-full bg-violet-600 hover:bg-violet-500 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-violet-600/20"
+              variant="primary"
+              className="w-full"
+              icon={<Play className="w-4 h-4 fill-current" />}
             >
-              <Play className="w-4 h-4 fill-current" />
               Relancer ce quiz
-            </button>
+            </Button>
           </div>
         ))
       )}

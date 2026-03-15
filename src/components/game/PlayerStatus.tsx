@@ -1,13 +1,13 @@
 import React from 'react';
-import { Player } from '../../types';
+import { RoomParticipant } from '../../types';
 
 interface PlayerStatusProps {
-  players: Player[];
+  players: RoomParticipant[];
 }
 
 export default function PlayerStatus({ players }: PlayerStatusProps) {
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1">
       <h3 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4 flex items-center justify-between">
         <span>Statut des joueurs</span>
         <span className="text-fuchsia-400 bg-fuchsia-500/10 px-2 py-1 rounded-full">

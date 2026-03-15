@@ -1,43 +1,43 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { LogOut, User, Coins, Shield, EyeOff, RefreshCcw, Star, Award, Zap, Heart, TrendingUp, ShoppingBag } from 'lucide-react';
-import { doc, onSnapshot, updateDoc, increment } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, increment, getDoc, setDoc } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
-import { useData } from '../DataContext';
-import type { GlobalLeaderboardEntry, ShopItem, Badge } from '../types';
+import { signOut } from 'firebase/auth';
+import { useAuth } from '../context/AuthContext';
+import { useUser } from '../context/UserContext';
+import { useCatalog } from '../context/CatalogContext';
+import { WalletService } from '../services/WalletService';
+import { UserService } from '../services/UserService';
+import type { GlobalLeaderboardEntry, ShopItem, CatalogBadge } from '../types';
 import * as LucideIcons from 'lucide-react';
 import { PageLayout } from '../components/ui/PageLayout';
 import { PageHeader } from '../components/ui/PageHeader';
+import { Button } from '../components/ui/Button';
+import { Badge as BadgeComponent } from '../components/ui/Badge';
+
+import { EmptyState } from '../components/ui/EmptyState';
+import { Modal } from '../components/ui/Modal';
 
 export default function Profile() {
-  const { leaderboard, shopItems: allShopItems, userProfile, badges: allBadges } = useData();
-  const [user, setUser] = useState<any>(null);
+  const { twitchUser, logout, user: firebaseUser } = useAuth();
+  const { profile, stats, wallet, inventory, badges: userBadges } = useUser();
+  const { items: allShopItems, badges: allBadges } = useCatalog();
+  
   const [showPayPal, setShowPayPal] = useState(false);
   const [purchaseAmount, setPurchaseAmount] = useState(5);
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    const storedUser = localStorage.getItem('twitch_user');
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-      } catch (err) {
-        console.error('Error parsing twitch_user from localStorage:', err);
-        localStorage.removeItem('twitch_user');
-      }
-    }
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem('twitch_user');
-    setUser(null);
+  const handleLogout = async () => {
+    logout();
+    navigate('/');
   };
 
   const handleToggleSub = async () => {
-    if (userProfile && auth.currentUser) {
-      const profileRef = doc(db, 'profiles', auth.currentUser.uid);
+    if (firebaseUser) {
+      const profileRef = doc(db, `users/${firebaseUser.uid}/public`, 'profile');
       await updateDoc(profileRef, {
-        is_sub: !userProfile.is_sub
+        is_sub: !profile?.is_sub
       });
     }
   };
@@ -48,19 +48,41 @@ export default function Profile() {
   };
 
   const handlePurchaseSuccess = async () => {
-    if (userProfile && auth.currentUser) {
-      const profileRef = doc(db, 'profiles', auth.currentUser.uid);
-      await updateDoc(profileRef, {
-        brainCoins: increment(purchaseAmount)
-      });
-      setShowPayPal(false);
-      alert(`Félicitations ! Vous avez reçu ${purchaseAmount} BrainCoins.`);
+    if (firebaseUser) {
+      try {
+        await WalletService.updateBalance(
+          firebaseUser.uid,
+          purchaseAmount,
+          'brainCoins',
+          'shop_purchase',
+          'Achat de BrainCoins via PayPal'
+        );
+        setShowPayPal(false);
+        alert(`Félicitations ! Vous avez reçu ${purchaseAmount} BrainCoins.`);
+      } catch (error) {
+        console.error('Error updating balance:', error);
+        alert('Une erreur est survenue lors de l\'achat.');
+      }
     }
   };
 
+  if (!twitchUser) {
+    return (
+      <PageLayout maxWidth="max-w-7xl" contentClassName="flex items-center justify-center">
+        <EmptyState
+          icon={<User className="w-12 h-12 text-zinc-700" />}
+          title="Accès Restreint"
+          description="Connectez-vous pour voir votre progression."
+          actionText="RETOUR À L'ACCUEIL"
+          actionLink="/"
+        />
+      </PageLayout>
+    );
+  }
+
 
   return (
-    <PageLayout maxWidth="max-w-7xl">
+    <PageLayout>
       <PageHeader
         title="Profil"
         subtitle="Vos statistiques et inventaire"
@@ -73,26 +95,24 @@ export default function Profile() {
         <div className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-8 text-center relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-purple-600/10 blur-[60px] -mr-16 -mt-16" />
           
-          {user ? (
-            <>
               <div className="relative inline-block mb-4">
                 <img 
-                  src={user.profile_image_url} 
+                  src={twitchUser.profile_image_url} 
                   alt="" 
                   className="w-24 h-24 rounded-full border-4 border-purple-500/50 p-1"
                   referrerPolicy="no-referrer"
                 />
                 <div className="absolute -bottom-2 -right-2 bg-purple-600 text-white text-[10px] font-black px-2 py-1 rounded-lg border-2 border-zinc-900">
-                  LVL {userProfile?.level || 1}
+                  LVL {stats?.level || 1}
                 </div>
               </div>
 
-              <h2 className="text-2xl font-black mb-1 tracking-tight">{user.display_name}</h2>
+              <h2 className="text-2xl font-black mb-1 tracking-tight">{twitchUser.display_name}</h2>
               <div className="flex items-center justify-center gap-2 mb-6">
-                <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest ${userProfile?.is_sub ? 'bg-purple-500 text-white' : 'bg-zinc-800 text-zinc-500'}`}>
-                  {userProfile?.is_sub ? 'Abonné Premium' : 'Joueur Standard'}
-                </span>
-                <button onClick={handleToggleSub} className="text-[10px] font-bold text-zinc-600 hover:text-white transition-colors uppercase">
+                <BadgeComponent variant={profile?.is_sub ? 'fuchsia' : 'zinc'}>
+                  {profile?.is_sub ? 'Abonné Premium' : 'Joueur Standard'}
+                </BadgeComponent>
+                <button onClick={handleToggleSub} className="cursor-pointer text-[10px] font-bold text-zinc-600 hover:text-white transition-colors uppercase">
                   (Simuler)
                 </button>
               </div>
@@ -102,12 +122,12 @@ export default function Profile() {
                 <div className="space-y-1.5">
                   <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-zinc-500">
                     <span>Expérience</span>
-                    <span>{userProfile?.xp || 0} / {(userProfile?.level || 1) * 1000}</span>
+                    <span>{stats?.xp || 0} / {(stats?.level || 1) * 1000}</span>
                   </div>
                     <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
                       <div 
                         className="h-full bg-purple-500 transition-all duration-1000" 
-                        style={{ width: `${((userProfile?.xp || 0) % 1000) / 10}%` }}
+                        style={{ width: `${((stats?.xp || 0) % 1000) / 10}%` }}
                       />
                     </div>
                   </div>
@@ -117,19 +137,19 @@ export default function Profile() {
                   <div className="bg-zinc-950/50 border border-zinc-800 rounded-2xl p-3 text-left">
                     <div className="flex items-center gap-2 text-amber-500 mb-1">
                       <Coins className="w-4 h-4" />
-                      <span className="text-[10px] font-black uppercase tracking-widest">Coins</span>
+                       <span className="text-[10px] font-black uppercase tracking-widest">Coins</span>
                     </div>
-                    <div className="text-xl font-black font-mono">{userProfile?.coins || 0}</div>
+                    <div className="text-xl font-black font-mono">{wallet?.coins || 0}</div>
                   </div>
                   <div className="bg-zinc-950/50 border border-zinc-800 rounded-2xl p-3 text-left relative group">
                     <div className="flex items-center gap-2 text-fuchsia-400 mb-1">
-                      <div className="w-4 h-4 bg-fuchsia-500 rounded-full flex items-center justify-center text-[8px] font-black text-white">B</div>
+                      <Zap className="w-4 h-4" />
                       <span className="text-[10px] font-black uppercase tracking-widest">BrainCoins</span>
                     </div>
-                    <div className="text-xl font-black font-mono">{userProfile?.brainCoins || 0}</div>
+                    <div className="text-xl font-black font-mono">{wallet?.brainCoins || 0}</div>
                     <button 
                       onClick={() => setShowPayPal(true)}
-                      className="absolute -top-2 -right-2 w-6 h-6 bg-fuchsia-600 rounded-full flex items-center justify-center hover:scale-110 transition-transform shadow-lg shadow-fuchsia-600/50"
+                      className="cursor-pointer absolute -top-2 -right-2 w-6 h-6 bg-fuchsia-600 rounded-full flex items-center justify-center hover:scale-110 transition-transform shadow-lg shadow-fuchsia-600/50"
                       title="Acheter des BrainCoins"
                     >
                       <LucideIcons.Plus className="w-4 h-4 text-white" />
@@ -137,22 +157,14 @@ export default function Profile() {
                   </div>
                 </div>
 
-                <button
+                <Button
                   onClick={handleLogout}
-                  className="w-full mt-8 bg-zinc-800 hover:bg-red-600 text-white py-3 rounded-2xl font-black text-xs transition-all flex items-center justify-center gap-2 group"
+                  variant="danger"
+                  className="w-full mt-8"
+                  icon={<LogOut className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />}
                 >
-                  <LogOut className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
                   DÉCONNEXION
-                </button>
-              </>
-            ) : (
-              <div className="py-12">
-                <p className="text-zinc-500 font-bold mb-6">Connectez-vous pour voir votre progression.</p>
-                <Link to="/" className="bg-white text-black px-8 py-3 rounded-2xl font-black transition-all active:scale-95">
-                  RETOUR
-                </Link>
-              </div>
-            )}
+                </Button>
           </div>
         </div>
 
@@ -168,7 +180,7 @@ export default function Profile() {
             {allBadges.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 {allBadges.map(badge => {
-                  const isEarned = userProfile?.badges?.includes(badge.id);
+                  const isEarned = userBadges.some(ub => ub.badgeId === badge.id);
                   return (
                     <div 
                       key={badge.id} 
@@ -219,18 +231,18 @@ export default function Profile() {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {userProfile?.inventory && userProfile.inventory.length > 0 ? (
-                userProfile.inventory.slice(0, 4).map((itemId, idx) => {
-                  const item = allShopItems.find(si => si.id === itemId);
+              {inventory && inventory.length > 0 ? (
+                inventory.slice(0, 4).map((entry, idx) => {
+                  const item = allShopItems.find(si => si.id === entry.itemId);
                   return (
-                    <div key={`${itemId}-${idx}`} className="flex flex-col items-center gap-3 bg-zinc-950/50 border border-zinc-800 rounded-2xl p-4 group hover:border-blue-500/50 transition-all">
+                    <div key={`${entry.id}-${idx}`} className="flex flex-col items-center gap-3 bg-zinc-950/50 border border-zinc-800 rounded-2xl p-4 group hover:border-blue-500/50 transition-all">
                       <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
                         item?.type === 'attack' ? 'bg-red-500/10 text-red-500' : 'bg-blue-500/10 text-blue-500'
                       }`}>
                         {item ? getIcon(item.icon, "w-6 h-6") : <LucideIcons.Package className="w-6 h-6" />}
                       </div>
                       <div className="text-center overflow-hidden w-full">
-                        <div className="text-[10px] font-black text-white uppercase truncate">{item?.name || itemId}</div>
+                        <div className="text-[10px] font-black text-white uppercase truncate">{item?.name || entry.itemId}</div>
                         <div className="text-[8px] font-bold text-zinc-600 uppercase">{item?.type || 'Objet'}</div>
                       </div>
                     </div>
@@ -264,74 +276,61 @@ export default function Profile() {
       </div>
 
       {/* PayPal Modal */}
-      {showPayPal && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-[32px] p-6 md:p-8 space-y-6 shadow-2xl relative overflow-y-auto custom-scrollbar max-h-[90%]">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-fuchsia-600/10 blur-[60px] -mr-16 -mt-16" />
-            
-            <div className="flex items-center justify-between relative">
-              <h2 className="text-2xl font-black italic uppercase tracking-tighter">Acheter des BrainCoins</h2>
-              <button onClick={() => setShowPayPal(false)} className="p-2 hover:bg-zinc-800 rounded-xl transition-colors">
-                <LucideIcons.X className="w-6 h-6" />
-              </button>
-            </div>
+      <Modal isOpen={showPayPal} onClose={() => setShowPayPal(false)} title="Acheter des BrainCoins" maxWidth="max-w-md">
+        <div className="space-y-6 relative">
+          <div className="p-6 bg-zinc-950 rounded-2xl border border-zinc-800 text-center space-y-2">
+            <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Taux de conversion</div>
+            <div className="text-3xl font-black text-white">1 <span className="text-fuchsia-500">B</span> = 1.00 €</div>
+          </div>
 
-            <div className="space-y-6 relative">
-              <div className="p-6 bg-zinc-950 rounded-2xl border border-zinc-800 text-center space-y-2">
-                <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Taux de conversion</div>
-                <div className="text-3xl font-black text-white">1 <span className="text-fuchsia-500">B</span> = 1.00 €</div>
+          <div className="space-y-3">
+            <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest ml-1">Quantité</label>
+            <div className="grid grid-cols-3 gap-2">
+              {[5, 10, 20, 50, 100].map(amount => (
+                <button
+                  key={amount}
+                  onClick={() => setPurchaseAmount(amount)}
+                  className={`py-3 rounded-xl font-black transition-all ${
+                    purchaseAmount === amount 
+                      ? 'bg-fuchsia-600 text-white shadow-lg shadow-fuchsia-600/20' 
+                      : 'bg-zinc-800 text-zinc-500 hover:text-white'
+                  }`}
+                >
+                  {amount} B
+                </button>
+              ))}
+              <div className="bg-zinc-800 rounded-xl flex items-center px-3">
+                <input 
+                  type="number" 
+                  value={purchaseAmount}
+                  onChange={(e) => setPurchaseAmount(Math.max(1, parseInt(e.target.value) || 0))}
+                  className="w-full bg-transparent text-center font-black outline-none text-white"
+                />
               </div>
-
-              <div className="space-y-3">
-                <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest ml-1">Quantité</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[5, 10, 20, 50, 100].map(amount => (
-                    <button
-                      key={amount}
-                      onClick={() => setPurchaseAmount(amount)}
-                      className={`py-3 rounded-xl font-black transition-all ${
-                        purchaseAmount === amount 
-                          ? 'bg-fuchsia-600 text-white shadow-lg shadow-fuchsia-600/20' 
-                          : 'bg-zinc-800 text-zinc-500 hover:text-white'
-                      }`}
-                    >
-                      {amount} B
-                    </button>
-                  ))}
-                  <div className="bg-zinc-800 rounded-xl flex items-center px-3">
-                    <input 
-                      type="number" 
-                      value={purchaseAmount}
-                      onChange={(e) => setPurchaseAmount(Math.max(1, parseInt(e.target.value) || 0))}
-                      className="w-full bg-transparent text-center font-black outline-none text-white"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 bg-blue-500/5 border border-blue-500/20 rounded-2xl flex items-center justify-between">
-                <div className="text-sm font-bold text-zinc-400">Total à payer</div>
-                <div className="text-2xl font-black text-blue-400">{purchaseAmount.toFixed(2)} €</div>
-              </div>
-
-              {/* Mock PayPal Button */}
-              <button 
-                onClick={handlePurchaseSuccess}
-                className="w-full bg-[#0070ba] hover:bg-[#005ea6] text-white py-4 rounded-2xl font-black text-lg transition-all flex items-center justify-center gap-3 shadow-xl shadow-blue-500/10"
-              >
-                <div className="flex items-center font-serif italic font-bold text-xl">
-                  <span className="text-white">Pay</span>
-                  <span className="text-[#009cde]">Pal</span>
-                </div>
-              </button>
-              
-              <p className="text-[10px] text-zinc-600 text-center font-medium">
-                Paiement sécurisé via PayPal. Les BrainCoins seront ajoutés instantanément à votre compte.
-              </p>
             </div>
           </div>
+
+          <div className="p-4 bg-blue-500/5 border border-blue-500/20 rounded-2xl flex items-center justify-between">
+            <div className="text-sm font-bold text-zinc-400">Total à payer</div>
+            <div className="text-2xl font-black text-blue-400">{purchaseAmount.toFixed(2)} €</div>
+          </div>
+
+          {/* Mock PayPal Button */}
+          <button 
+            onClick={handlePurchaseSuccess}
+            className="w-full bg-[#0070ba] hover:bg-[#005ea6] text-white py-4 rounded-2xl font-black text-lg transition-all flex items-center justify-center gap-3 shadow-xl shadow-blue-500/10"
+          >
+            <div className="flex items-center font-serif italic font-bold text-xl">
+              <span className="text-white">Pay</span>
+              <span className="text-[#009cde]">Pal</span>
+            </div>
+          </button>
+          
+          <p className="text-[10px] text-zinc-600 text-center font-medium">
+            Paiement sécurisé via PayPal. Les BrainCoins seront ajoutés instantanément à votre compte.
+          </p>
         </div>
-      )}
+      </Modal>
     </PageLayout>
   );
 }

@@ -1,101 +1,125 @@
 {
   "entities": {
-    "LeaderboardEntry": {
-      "title": "LeaderboardEntry",
-      "description": "An entry in the global leaderboard / User Profile",
+    "UserAccount": {
+      "title": "UserAccount",
+      "description": "Core user account data",
       "type": "object",
       "properties": {
-        "userId": { "type": "string" },
+        "uid": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "status": { "type": "string", "enum": ["active", "banned"] },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["uid", "role", "status", "createdAt", "updatedAt"]
+    },
+    "TwitchConnection": {
+      "title": "TwitchConnection",
+      "description": "Twitch OAuth connection data",
+      "type": "object",
+      "properties": {
+        "provider": { "type": "string" },
+        "twitchUserId": { "type": "string" },
+        "login": { "type": "string" },
+        "displayName": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "connectedAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["provider", "twitchUserId", "login", "displayName", "avatarUrl", "connectedAt", "updatedAt"]
+    },
+    "PublicProfile": {
+      "title": "PublicProfile",
+      "description": "Publicly visible user profile",
+      "type": "object",
+      "properties": {
         "username": { "type": "string" },
-        "avatar": { "type": "string" },
+        "avatarUrl": { "type": "string" },
         "level": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["username", "avatarUrl", "level", "updatedAt"]
+    },
+    "UserStats": {
+      "title": "UserStats",
+      "description": "Global user statistics",
+      "type": "object",
+      "properties": {
+        "scoreTotal": { "type": "number" },
+        "gamesPlayed": { "type": "number" },
+        "wins": { "type": "number" },
+        "correctAnswers": { "type": "number" },
+        "wrongAnswers": { "type": "number" },
         "xp": { "type": "number" },
+        "level": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["scoreTotal", "gamesPlayed", "wins", "correctAnswers", "wrongAnswers", "xp", "level", "updatedAt"]
+    },
+    "UserWallet": {
+      "title": "UserWallet",
+      "description": "User's currency balances",
+      "type": "object",
+      "properties": {
         "coins": { "type": "number" },
         "brainCoins": { "type": "number" },
-        "inventory": { 
-          "type": "array",
-          "items": { "type": "string" },
-          "maxItems": 15
-        }
+        "updatedAt": { "type": "number" }
       },
-      "required": ["username", "level", "xp", "coins", "brainCoins", "inventory"]
+      "required": ["coins", "brainCoins", "updatedAt"]
     },
-    "Theme": {
-      "title": "Theme",
-      "description": "A quiz theme",
+    "WalletTransaction": {
+      "title": "WalletTransaction",
+      "description": "History of wallet changes",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" },
-        "description": { "type": "string" }
+        "type": { "type": "string" },
+        "currency": { "type": "string" },
+        "amount": { "type": "number" },
+        "sourceType": { "type": "string" },
+        "sourceId": { "type": "string" },
+        "createdAt": { "type": "number" }
       },
-      "required": ["id", "name"]
+      "required": ["type", "currency", "amount", "sourceType", "createdAt"]
     },
-    "ShopItem": {
-      "title": "ShopItem",
-      "description": "An item in the shop",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" },
-        "price": { "type": "number" },
-        "type": { "type": "string" }
-      },
-      "required": ["id", "name", "price", "type"]
-    },
-    "InventoryItem": {
-      "title": "InventoryItem",
+    "InventoryEntry": {
+      "title": "InventoryEntry",
       "description": "An item in a user's inventory",
       "type": "object",
       "properties": {
-        "userId": { "type": "string" },
         "itemId": { "type": "string" },
-        "quantity": { "type": "number" }
+        "status": { "type": "string" },
+        "sourceType": { "type": "string" },
+        "sourceId": { "type": "string" },
+        "acquiredAt": { "type": "number" },
+        "usedAt": { "type": "number" }
       },
-      "required": ["userId", "itemId", "quantity"]
+      "required": ["itemId", "status", "sourceType", "acquiredAt"]
     },
-    "AuctionItem": {
-      "title": "AuctionItem",
-      "description": "An item currently in auction",
+    "UserBadge": {
+      "title": "UserBadge",
+      "description": "A badge unlocked by a user",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "itemId": { "type": "string" },
-        "sellerId": { "type": "string" },
-        "currentBid": { "type": "number" },
-        "highestBidderId": { "type": "string" },
-        "endTime": { "type": "number" }
+        "badgeId": { "type": "string" },
+        "unlockedAt": { "type": "number" },
+        "source": { "type": "string" }
       },
-      "required": ["id", "itemId", "sellerId", "currentBid", "endTime"]
+      "required": ["badgeId", "unlockedAt", "source"]
     },
-    "Badge": {
-      "title": "Badge",
-      "description": "A player badge",
+    "GameResult": {
+      "title": "GameResult",
+      "description": "Result of a specific game for a user",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" },
-        "description": { "type": "string" },
-        "icon": { "type": "string" },
-        "level": { "type": "number" },
-        "rarity": { "type": "number" }
+        "roomId": { "type": "string" },
+        "score": { "type": "number" },
+        "rank": { "type": "number" },
+        "coinsEarned": { "type": "number" },
+        "brainCoinsEarned": { "type": "number" },
+        "xpEarned": { "type": "number" },
+        "processedAt": { "type": "number" }
       },
-      "required": ["id", "name", "description", "icon", "level", "rarity"]
-    },
-    "Chest": {
-      "title": "Chest",
-      "description": "A loot chest",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" },
-        "description": { "type": "string" },
-        "price": { "type": "number" },
-        "icon": { "type": "string" },
-        "possibleItems": { "type": "array", "items": { "type": "string" } },
-        "rarity": { "type": "string", "enum": ["common", "rare", "epic", "legendary"] }
-      },
-      "required": ["id", "name", "description", "price", "icon", "possibleItems", "rarity"]
+      "required": ["roomId", "score", "coinsEarned", "brainCoinsEarned", "xpEarned", "processedAt"]
     },
     "Room": {
       "title": "Room",
@@ -103,52 +127,217 @@
       "type": "object",
       "properties": {
         "id": { "type": "string" },
+        "hostUid": { "type": "string" },
         "name": { "type": "string" },
         "description": { "type": "string" },
-        "theme": { "type": "string" },
+        "themeId": { "type": "string" },
+        "status": { "type": "string" },
+        "currentQuestionIndex": { "type": "number" },
+        "questionStartTime": { "type": "number" },
+        "questionCount": { "type": "number" },
         "timeLimit": { "type": "number" },
-        "hostId": { "type": "string" },
-        "status": { "type": "string" }
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
       },
-      "required": ["id", "name", "theme", "timeLimit", "hostId", "status"]
+      "required": ["id", "hostUid", "name", "status", "currentQuestionIndex", "questionCount", "timeLimit", "createdAt", "updatedAt"]
+    },
+    "RoomParticipant": {
+      "title": "RoomParticipant",
+      "description": "A player in a room",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "username": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "color": { "type": "string" },
+        "joinedAt": { "type": "number" },
+        "score": { "type": "number" },
+        "streak": { "type": "number" },
+        "hasAnswered": { "type": "boolean" },
+        "isCorrect": { "type": "boolean" },
+        "isProtected": { "type": "boolean" }
+      },
+      "required": ["uid", "username", "avatarUrl", "color", "joinedAt", "score", "streak", "hasAnswered", "isProtected"]
+    },
+    "RoomQuestion": {
+      "title": "RoomQuestion",
+      "description": "A question within a room",
+      "type": "object",
+      "properties": {
+        "index": { "type": "number" },
+        "questionId": { "type": "string" },
+        "text": { "type": "string" },
+        "options": { "type": "array", "items": { "type": "string" } },
+        "correctOptionIndex": { "type": "number" },
+        "timeLimit": { "type": "number" },
+        "theme": { "type": "string" }
+      },
+      "required": ["index", "text", "options", "correctOptionIndex", "timeLimit"]
+    },
+    "RoomAnswer": {
+      "title": "RoomAnswer",
+      "description": "A player's answer to a question",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "questionIndex": { "type": "number" },
+        "answerIndex": { "type": "number" },
+        "isCorrect": { "type": "boolean" },
+        "responseTimeMs": { "type": "number" },
+        "pointsEarned": { "type": "number" },
+        "answeredAt": { "type": "number" }
+      },
+      "required": ["uid", "questionIndex", "answerIndex", "isCorrect", "responseTimeMs", "pointsEarned", "answeredAt"]
+    },
+    "RoomEffectDoc": {
+      "title": "RoomEffectDoc",
+      "description": "An active effect in a room",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string" },
+        "sourceUid": { "type": "string" },
+        "sourceName": { "type": "string" },
+        "targetUid": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "expiresAt": { "type": "number" }
+      },
+      "required": ["id", "type", "sourceUid", "sourceName", "createdAt"]
+    },
+    "CatalogItem": {
+      "title": "CatalogItem",
+      "description": "An item in the global catalog",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "currency": { "type": "string" },
+        "icon": { "type": "string" },
+        "type": { "type": "string" },
+        "power": { "type": "number" },
+        "isExclusive": { "type": "boolean" },
+        "chestOnly": { "type": "boolean" },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "name", "description", "price", "currency", "icon", "type", "active", "createdAt", "updatedAt"]
+    },
+    "CatalogChest": {
+      "title": "CatalogChest",
+      "description": "A chest in the global catalog",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "currency": { "type": "string" },
+        "icon": { "type": "string" },
+        "rarity": { "type": "string" },
+        "active": { "type": "boolean" }
+      },
+      "required": ["id", "name", "description", "price", "currency", "icon", "rarity", "active"]
+    },
+    "ChestLootEntry": {
+      "title": "ChestLootEntry",
+      "description": "An entry in a chest's loot table",
+      "type": "object",
+      "properties": {
+        "itemId": { "type": "string" },
+        "weight": { "type": "number" },
+        "minQty": { "type": "number" },
+        "maxQty": { "type": "number" }
+      },
+      "required": ["itemId", "weight", "minQty", "maxQty"]
     }
   },
   "firestore": {
-    "profiles": {
-      "schema": { "$ref": "LeaderboardEntry" },
-      "description": "User profiles and global leaderboard collection"
+    "users/{uid}": {
+      "schema": { "$ref": "UserAccount" },
+      "description": "Core user account"
     },
-    "themes": {
-      "schema": { "$ref": "Theme" },
-      "description": "Quiz themes collection"
+    "users/{uid}/connections/twitch": {
+      "schema": { "$ref": "TwitchConnection" },
+      "description": "Twitch connection data"
     },
-    "shopItems": {
-      "schema": { "$ref": "ShopItem" },
-      "description": "Shop items collection"
+    "users/{uid}/public/profile": {
+      "schema": { "$ref": "PublicProfile" },
+      "description": "Public profile"
     },
-    "inventory": {
-      "schema": { "$ref": "InventoryItem" },
-      "description": "User inventory collection"
+    "users/{uid}/stats/global": {
+      "schema": { "$ref": "UserStats" },
+      "description": "Global user statistics"
     },
-    "auctions": {
-      "schema": { "$ref": "AuctionItem" },
-      "description": "Active auctions collection"
+    "users/{uid}/wallet/main": {
+      "schema": { "$ref": "UserWallet" },
+      "description": "User wallet"
     },
-    "badges": {
-      "schema": { "$ref": "Badge" },
-      "description": "Badges collection"
+    "users/{uid}/walletTransactions/{txId}": {
+      "schema": { "$ref": "WalletTransaction" },
+      "description": "Wallet transactions history"
     },
-    "chests": {
-      "schema": { "$ref": "Chest" },
-      "description": "Loot chests collection"
+    "users/{uid}/inventory/{inventoryEntryId}": {
+      "schema": { "$ref": "InventoryEntry" },
+      "description": "User inventory items"
     },
-    "rooms": {
+    "users/{uid}/badges/{badgeId}": {
+      "schema": { "$ref": "UserBadge" },
+      "description": "User unlocked badges"
+    },
+    "users/{uid}/gameResults/{roomId}": {
+      "schema": { "$ref": "GameResult" },
+      "description": "User game results history"
+    },
+    "rooms/{roomId}": {
       "schema": { "$ref": "Room" },
-      "description": "Quiz rooms collection"
+      "description": "Quiz room"
     },
-    "pendingQuestions": {
+    "rooms/{roomId}/participants/{uid}": {
+      "schema": { "$ref": "RoomParticipant" },
+      "description": "Room participants"
+    },
+    "rooms/{roomId}/questions/{index}": {
+      "schema": { "$ref": "RoomQuestion" },
+      "description": "Room questions"
+    },
+    "rooms/{roomId}/answers/{questionIndex_uid}": {
+      "schema": { "$ref": "RoomAnswer" },
+      "description": "Room answers"
+    },
+    "rooms/{roomId}/effects/{effectId}": {
+      "schema": { "$ref": "RoomEffectDoc" },
+      "description": "Room active effects"
+    },
+    "catalogItems/{itemId}": {
+      "schema": { "$ref": "CatalogItem" },
+      "description": "Global items catalog"
+    },
+    "catalogChests/{chestId}": {
+      "schema": { "$ref": "CatalogChest" },
+      "description": "Global chests catalog"
+    },
+    "catalogChests/{chestId}/lootTable/{entryId}": {
+      "schema": { "$ref": "ChestLootEntry" },
+      "description": "Chest loot table"
+    },
+    "catalogBadges/{badgeId}": {
       "schema": { "type": "object" },
-      "description": "Pending quiz questions collection"
+      "description": "Global badges catalog"
+    },
+    "themes/{themeId}": {
+      "schema": { "type": "object" },
+      "description": "Quiz themes"
+    },
+    "questionBank/{questionId}": {
+      "schema": { "type": "object" },
+      "description": "Global question bank"
+    },
+    "auctions/{auctionId}": {
+      "schema": { "type": "object" },
+      "description": "Active auctions"
     }
   }
 }

@@ -1,67 +1,47 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Plus, Trash2, Save, Database, Zap, Trophy, Package, Sparkles, BookOpen } from 'lucide-react';
-import { collection, addDoc, getDocs, deleteDoc, doc, setDoc } from 'firebase/firestore';
-import { db, auth } from '../lib/firebase';
-import { Theme, ShopItem, Badge, Chest, Question } from '../types';
+import { Shield, Plus, Trash2, Save, Database, Zap, Trophy, Package, BookOpen } from 'lucide-react';
+import { collection, addDoc, getDocs, deleteDoc, doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
+import { Theme, CatalogItem, CatalogBadge, CatalogChest, Question } from '../types';
 import { SeedService } from '../services/SeedService';
+import { useAuth } from '../context/AuthContext';
+import { useUser } from '../context/UserContext';
+import { useCatalog } from '../context/CatalogContext';
+import { UserService } from '../services/UserService';
 import { PageLayout } from '../components/ui/PageLayout';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Button } from '../components/ui/Button';
+import { EmptyState } from '../components/ui/EmptyState';
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<'themes' | 'items' | 'badges' | 'chests'>('themes');
-  const [twitchUser, setTwitchUser] = useState<any>(null);
+  const { twitchUser, user: firebaseUser, isAdmin } = useAuth();
   const [isSeeding, setIsSeeding] = useState(false);
-
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const storedUser = localStorage.getItem('twitch_user');
-    if (storedUser) {
-      setTwitchUser(JSON.parse(storedUser));
-    }
-  }, []);
-
-  const isAdmin = twitchUser?.display_name === 'JimaG4ming';
-
   const handleInitializeAdmin = async () => {
-    if (!auth.currentUser || !twitchUser) return;
+    if (!firebaseUser || !twitchUser) return;
     try {
-      await setDoc(doc(db, 'profiles', auth.currentUser.uid), {
-        username: twitchUser.display_name,
-        score: 0,
-        games_played: 0,
-        date: Date.now(),
-        coins: 1000,
-        brainCoins: 100,
-        is_sub: true,
-        badges: [],
-        inventory: [],
-        level: 1,
-        xp: 0,
-        role: 'admin'
-      });
-      alert('Profil Admin initialisé dans Firestore !');
+      await UserService.syncUser(twitchUser);
+      alert('Profil Admin synchronisé !');
       window.location.reload();
     } catch (err: any) {
-      console.error(err);
-      if (err.message?.includes('insufficient permissions')) {
-        alert('Erreur de permissions : Assurez-vous d\'être bien connecté.');
-      } else {
-        alert('Erreur lors de l\'initialisation du profil.');
-      }
+      console.error('Error initializing admin:', err);
+      setError('Erreur lors de l\'initialisation : ' + err.message);
     }
   };
 
   if (!isAdmin) {
     return (
-      <div className="h-full flex items-center justify-center bg-zinc-950 text-white p-6">
-        <div className="text-center">
-          <Shield className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold mb-2">Accès Refusé</h1>
-          <p className="text-zinc-400">Seul l'administrateur JimaG4ming peut accéder à cette page.</p>
-        </div>
-      </div>
+      <PageLayout maxWidth="max-w-7xl" contentClassName="flex items-center justify-center">
+        <EmptyState
+          icon={<Shield className="w-12 h-12 text-red-500" />}
+          title="Accès Refusé"
+          description="Seul l'administrateur peut accéder à cette page."
+          actionText="RETOUR À L'ACCUEIL"
+          actionLink="/"
+        />
+      </PageLayout>
     );
   }
 
@@ -84,7 +64,7 @@ export default function AdminDashboard() {
   };
 
   return (
-    <PageLayout maxWidth="max-w-6xl">
+    <PageLayout maxWidth="max-w-full" contentClassName="overflow-y-auto custom-scrollbar">
       <PageHeader
         title="Panel Admin"
         subtitle="Gestion du contenu de BrainClash"
@@ -159,45 +139,53 @@ function ThemeManager() {
   const [newThemeName, setNewThemeName] = useState('');
 
   useEffect(() => {
-    fetchThemes();
+    const unsub = onSnapshot(collection(db, 'themes'), (snapshot) => {
+      setThemes(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Theme)));
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'themes');
+    });
+    return () => unsub();
   }, []);
-
-  const fetchThemes = async () => {
-    const snap = await getDocs(collection(db, 'themes'));
-    setThemes(snap.docs.map(d => ({ id: d.id, ...d.data() } as Theme)));
-  };
 
   const handleAddTheme = async () => {
     if (!newThemeName.trim()) return;
     const id = newThemeName.toLowerCase().replace(/\s+/g, '_');
-    await setDoc(doc(db, 'themes', id), { name: newThemeName, questions: [] });
-    setNewThemeName('');
-    fetchThemes();
+    const path = `themes/${id}`;
+    try {
+      await setDoc(doc(db, 'themes', id), { name: newThemeName, questionCount: 0 });
+      setNewThemeName('');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, path);
+    }
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex gap-2">
-        <input 
-          type="text" 
-          placeholder="Nom du nouveau thème..." 
-          className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-accent-500"
-          value={newThemeName}
-          onChange={e => setNewThemeName(e.target.value)}
-        />
-        <button onClick={handleAddTheme} className="bg-accent-600 hover:bg-accent-500 px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2">
-          <Plus className="w-4 h-4" /> Ajouter
-        </button>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="bg-zinc-950 p-6 rounded-2xl border border-zinc-800">
+        <h3 className="text-lg font-bold mb-4">Ajouter un thème</h3>
+        <div className="flex flex-col gap-4">
+          <input 
+            type="text" 
+            placeholder="Nom du nouveau thème..." 
+            className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent-500"
+            value={newThemeName}
+            onChange={e => setNewThemeName(e.target.value)}
+          />
+          <Button onClick={handleAddTheme} variant="primary" className="w-full">
+            <Plus className="w-4 h-4" /> Ajouter le thème
+          </Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="space-y-4">
+        <h3 className="text-lg font-bold mb-4">Thèmes existants</h3>
         {themes.map(theme => (
           <div key={theme.id} className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800 flex justify-between items-center">
             <div>
               <div className="font-bold">{theme.name}</div>
-              <div className="text-xs text-zinc-500">{theme.questions?.length || 0} questions</div>
+              <div className="text-xs text-zinc-500">{theme.questionCount || 0} questions</div>
             </div>
-            <button onClick={async () => { await deleteDoc(doc(db, 'themes', theme.id.toString())); fetchThemes(); }} className="p-2 text-zinc-600 hover:text-red-500 transition-colors">
+            <button onClick={async () => { await deleteDoc(doc(db, 'themes', theme.id.toString())); }} className="p-2 text-zinc-600 hover:text-red-500 transition-colors">
               <Trash2 className="w-4 h-4" />
             </button>
           </div>
@@ -208,70 +196,78 @@ function ThemeManager() {
 }
 
 function ItemManager() {
-  const [items, setItems] = useState<ShopItem[]>([]);
-  const [newItem, setNewItem] = useState<Partial<ShopItem>>({ type: 'spell', power: 1 });
+  const [items, setItems] = useState<CatalogItem[]>([]);
+  const [newItem, setNewItem] = useState<Partial<CatalogItem>>({ type: 'spell', power: 1 });
 
   useEffect(() => {
-    fetchItems();
+    const unsub = onSnapshot(collection(db, 'catalogItems'), (snapshot) => {
+      setItems(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as CatalogItem)));
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'catalogItems');
+    });
+    return () => unsub();
   }, []);
-
-  const fetchItems = async () => {
-    const snap = await getDocs(collection(db, 'shopItems'));
-    setItems(snap.docs.map(d => ({ id: d.id, ...d.data() } as ShopItem)));
-  };
 
   const handleAddItem = async () => {
     if (!newItem.name || !newItem.price) return;
     const id = 'item_' + Date.now();
-    await setDoc(doc(db, 'shopItems', id), { ...newItem, id });
-    setNewItem({ type: 'spell', power: 1 });
-    fetchItems();
+    const path = `catalogItems/${id}`;
+    try {
+      await setDoc(doc(db, 'catalogItems', id), { ...newItem, id, active: true, createdAt: Date.now(), updatedAt: Date.now() });
+      setNewItem({ type: 'spell', power: 1 });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, path);
+    }
   };
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-zinc-950 p-4 rounded-2xl border border-zinc-800">
-        <input 
-          type="text" placeholder="Nom de l'objet" 
-          className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 text-sm"
-          value={newItem.name || ''} onChange={e => setNewItem({...newItem, name: e.target.value})}
-        />
-        <input 
-          type="number" placeholder="Prix" 
-          className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 text-sm"
-          value={newItem.price || ''} onChange={e => setNewItem({...newItem, price: parseInt(e.target.value)})}
-        />
-        <select 
-          className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 text-sm"
-          value={newItem.type} onChange={e => setNewItem({...newItem, type: e.target.value as any})}
-        >
-          <option value="spell">Sort (Attaque)</option>
-          <option value="defense">Défense</option>
-          <option value="bonus">Bonus</option>
-        </select>
-        <input 
-          type="text" placeholder="Description" 
-          className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 text-sm"
-          value={newItem.description || ''} onChange={e => setNewItem({...newItem, description: e.target.value})}
-        />
-        <button onClick={handleAddItem} className="md:col-span-2 bg-accent-600 hover:bg-accent-500 py-2 rounded-xl font-bold text-sm">
-          Ajouter l'objet
-        </button>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="bg-zinc-950 p-6 rounded-2xl border border-zinc-800">
+        <h3 className="text-lg font-bold mb-4">Ajouter un objet</h3>
+        <div className="grid grid-cols-1 gap-4">
+          <input 
+            type="text" placeholder="Nom de l'objet" 
+            className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm"
+            value={newItem.name || ''} onChange={e => setNewItem({...newItem, name: e.target.value})}
+          />
+          <input 
+            type="number" placeholder="Prix" 
+            className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm"
+            value={newItem.price || ''} onChange={e => setNewItem({...newItem, price: parseInt(e.target.value)})}
+          />
+          <select 
+            className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm"
+            value={newItem.type} onChange={e => setNewItem({...newItem, type: e.target.value as any})}
+          >
+            <option value="spell">Sort (Attaque)</option>
+            <option value="defense">Défense</option>
+            <option value="bonus">Bonus</option>
+          </select>
+          <input 
+            type="text" placeholder="Description" 
+            className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm"
+            value={newItem.description || ''} onChange={e => setNewItem({...newItem, description: e.target.value})}
+          />
+          <Button onClick={handleAddItem} variant="primary" className="w-full">
+            Ajouter l'objet
+          </Button>
+        </div>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-4">
+        <h3 className="text-lg font-bold mb-4">Objets existants</h3>
         {items.map(item => (
-          <div key={item.id} className="bg-zinc-950 p-3 rounded-xl border border-zinc-800 flex justify-between items-center">
+          <div key={item.id} className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800 flex justify-between items-center">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-zinc-900 rounded-lg flex items-center justify-center text-accent-500">
-                <Zap className="w-4 h-4" />
+              <div className="w-10 h-10 bg-zinc-900 rounded-xl flex items-center justify-center text-accent-500">
+                <Zap className="w-5 h-5" />
               </div>
               <div>
-                <div className="text-sm font-bold">{item.name}</div>
-                <div className="text-[10px] text-zinc-500">{item.price} Coins • {item.type}</div>
+                <div className="font-bold">{item.name}</div>
+                <div className="text-xs text-zinc-500">{item.price} Coins • {item.type}</div>
               </div>
             </div>
-            <button onClick={async () => { await deleteDoc(doc(db, 'shopItems', item.id.toString())); fetchItems(); }} className="p-2 text-zinc-600 hover:text-red-500 transition-colors">
+            <button onClick={async () => { await deleteDoc(doc(db, 'catalogItems', item.id.toString())); }} className="p-2 text-zinc-600 hover:text-red-500 transition-colors">
               <Trash2 className="w-4 h-4" />
             </button>
           </div>
@@ -282,134 +278,154 @@ function ItemManager() {
 }
 
 function BadgeManager() {
-  const [badges, setBadges] = useState<Badge[]>([]);
-  const [newBadge, setNewBadge] = useState<Partial<Badge>>({ level: 1, rarity: 10 });
+  const [badges, setBadges] = useState<CatalogBadge[]>([]);
+  const [newBadge, setNewBadge] = useState<Partial<CatalogBadge>>({ });
 
   useEffect(() => {
-    fetchBadges();
+    const unsub = onSnapshot(collection(db, 'catalogBadges'), (snapshot) => {
+      setBadges(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as CatalogBadge)));
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'catalogBadges');
+    });
+    return () => unsub();
   }, []);
-
-  const fetchBadges = async () => {
-    const snap = await getDocs(collection(db, 'badges'));
-    setBadges(snap.docs.map(d => ({ id: d.id, ...d.data() } as Badge)));
-  };
 
   const handleAddBadge = async () => {
     if (!newBadge.name) return;
     const id = 'badge_' + Date.now();
-    await setDoc(doc(db, 'badges', id), { ...newBadge, id, icon: 'Award' });
-    setNewBadge({ level: 1, rarity: 10 });
-    fetchBadges();
+    const path = `catalogBadges/${id}`;
+    try {
+      await setDoc(doc(db, 'catalogBadges', id), { ...newBadge, id, icon: 'Award' });
+      setNewBadge({ });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, path);
+    }
   };
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-zinc-950 p-4 rounded-2xl border border-zinc-800">
-        <input 
-          type="text" placeholder="Nom du badge" 
-          className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 text-sm"
-          value={newBadge.name || ''} onChange={e => setNewBadge({...newBadge, name: e.target.value})}
-        />
-        <input 
-          type="text" placeholder="Description" 
-          className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 text-sm"
-          value={newBadge.description || ''} onChange={e => setNewBadge({...newBadge, description: e.target.value})}
-        />
-        <button onClick={handleAddBadge} className="md:col-span-2 bg-accent-600 hover:bg-accent-500 py-2 rounded-xl font-bold text-sm">
-          Ajouter le badge
-        </button>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="bg-zinc-950 p-6 rounded-2xl border border-zinc-800">
+        <h3 className="text-lg font-bold mb-4">Ajouter un badge</h3>
+        <div className="grid grid-cols-1 gap-4">
+          <input 
+            type="text" placeholder="Nom du badge" 
+            className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm"
+            value={newBadge.name || ''} onChange={e => setNewBadge({...newBadge, name: e.target.value})}
+          />
+          <input 
+            type="text" placeholder="Description" 
+            className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm"
+            value={newBadge.description || ''} onChange={e => setNewBadge({...newBadge, description: e.target.value})}
+          />
+          <Button onClick={handleAddBadge} variant="primary" className="w-full">
+            Ajouter le badge
+          </Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-        {badges.map(badge => (
-          <div key={badge.id} className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800 text-center relative group">
-            <Trophy className="w-8 h-8 text-yellow-500 mx-auto mb-2" />
-            <div className="font-bold text-sm">{badge.name}</div>
-            <div className="text-[10px] text-zinc-500 mt-1">{badge.description}</div>
-            <button 
-              onClick={async () => { await deleteDoc(doc(db, 'badges', badge.id.toString())); fetchBadges(); }}
-              className="absolute top-2 right-2 p-1 text-zinc-800 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
-            >
-              <Trash2 className="w-3 h-3" />
-            </button>
-          </div>
-        ))}
+      <div className="space-y-4">
+        <h3 className="text-lg font-bold mb-4">Badges existants</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {badges.map(badge => (
+            <div key={badge.id} className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800 text-center relative group">
+              <Trophy className="w-8 h-8 text-yellow-500 mx-auto mb-2" />
+              <div className="font-bold text-sm">{badge.name}</div>
+              <div className="text-[10px] text-zinc-500 mt-1">{badge.description}</div>
+              <button 
+                onClick={async () => { await deleteDoc(doc(db, 'badges', badge.id.toString())); }}
+                className="absolute top-2 right-2 p-1 text-zinc-800 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
 }
 
 function ChestManager() {
-  const [chests, setChests] = useState<Chest[]>([]);
-  const [newChest, setNewChest] = useState<Partial<Chest>>({ rarity: 'common', possibleItems: [] });
+  const [chests, setChests] = useState<CatalogChest[]>([]);
+  const [newChest, setNewChest] = useState<Partial<CatalogChest>>({ rarity: 'common', possibleItems: [] });
 
   useEffect(() => {
-    fetchChests();
+    const unsub = onSnapshot(collection(db, 'catalogChests'), (snapshot) => {
+      setChests(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as CatalogChest)));
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'catalogChests');
+    });
+    return () => unsub();
   }, []);
-
-  const fetchChests = async () => {
-    const snap = await getDocs(collection(db, 'chests'));
-    setChests(snap.docs.map(d => ({ id: d.id, ...d.data() } as Chest)));
-  };
 
   const handleAddChest = async () => {
     if (!newChest.name || !newChest.price) return;
     const id = 'chest_' + Date.now();
-    await setDoc(doc(db, 'chests', id), { ...newChest, id, icon: 'Package' });
-    setNewChest({ rarity: 'common', possibleItems: [] });
-    fetchChests();
+    const path = `catalogChests/${id}`;
+    try {
+      await setDoc(doc(db, 'catalogChests', id), { ...newChest, id, icon: 'Package', active: true });
+      setNewChest({ rarity: 'common', possibleItems: [] });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, path);
+    }
   };
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-zinc-950 p-4 rounded-2xl border border-zinc-800">
-        <input 
-          type="text" placeholder="Nom du coffre" 
-          className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 text-sm"
-          value={newChest.name || ''} onChange={e => setNewChest({...newChest, name: e.target.value})}
-        />
-        <input 
-          type="number" placeholder="Prix" 
-          className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 text-sm"
-          value={newChest.price || ''} onChange={e => setNewChest({...newChest, price: parseInt(e.target.value)})}
-        />
-        <select 
-          className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 text-sm"
-          value={newChest.rarity} onChange={e => setNewChest({...newChest, rarity: e.target.value as any})}
-        >
-          <option value="common">Commun</option>
-          <option value="rare">Rare</option>
-          <option value="epic">Épique</option>
-          <option value="legendary">Légendaire</option>
-        </select>
-        <button onClick={handleAddChest} className="md:col-span-2 bg-accent-600 hover:bg-accent-500 py-2 rounded-xl font-bold text-sm">
-          Ajouter le coffre
-        </button>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="bg-zinc-950 p-6 rounded-2xl border border-zinc-800">
+        <h3 className="text-lg font-bold mb-4">Ajouter un coffre</h3>
+        <div className="grid grid-cols-1 gap-4">
+          <input 
+            type="text" placeholder="Nom du coffre" 
+            className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm"
+            value={newChest.name || ''} onChange={e => setNewChest({...newChest, name: e.target.value})}
+          />
+          <input 
+            type="number" placeholder="Prix" 
+            className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm"
+            value={newChest.price || ''} onChange={e => setNewChest({...newChest, price: parseInt(e.target.value)})}
+          />
+          <select 
+            className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm"
+            value={newChest.rarity} onChange={e => setNewChest({...newChest, rarity: e.target.value as any})}
+          >
+            <option value="common">Commun</option>
+            <option value="rare">Rare</option>
+            <option value="epic">Épique</option>
+            <option value="legendary">Légendaire</option>
+          </select>
+          <Button onClick={handleAddChest} variant="primary" className="w-full">
+            Ajouter le coffre
+          </Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {chests.map(chest => (
-          <div key={chest.id} className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800 flex items-center gap-4 group">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-              chest.rarity === 'legendary' ? 'bg-yellow-500/20 text-yellow-500' :
-              chest.rarity === 'epic' ? 'bg-purple-500/20 text-purple-500' :
-              chest.rarity === 'rare' ? 'bg-blue-500/20 text-blue-500' :
-              'bg-zinc-800 text-zinc-400'
-            }`}>
-              <Package className="w-6 h-6" />
+      <div className="space-y-4">
+        <h3 className="text-lg font-bold mb-4">Coffres existants</h3>
+        <div className="grid grid-cols-1 gap-4">
+          {chests.map(chest => (
+            <div key={chest.id} className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800 flex items-center gap-4 group">
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                chest.rarity === 'legendary' ? 'bg-yellow-500/20 text-yellow-500' :
+                chest.rarity === 'epic' ? 'bg-purple-500/20 text-purple-500' :
+                chest.rarity === 'rare' ? 'bg-blue-500/20 text-blue-500' :
+                'bg-zinc-800 text-zinc-400'
+              }`}>
+                <Package className="w-6 h-6" />
+              </div>
+              <div className="flex-1">
+                <div className="font-bold text-sm">{chest.name}</div>
+                <div className="text-[10px] text-zinc-500 uppercase font-black">{chest.rarity} • {chest.price} Coins</div>
+              </div>
+              <button 
+                onClick={async () => { await deleteDoc(doc(db, 'chests', chest.id.toString())); }}
+                className="p-2 text-zinc-800 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
             </div>
-            <div className="flex-1">
-              <div className="font-bold text-sm">{chest.name}</div>
-              <div className="text-[10px] text-zinc-500 uppercase font-black">{chest.rarity} • {chest.price} Coins</div>
-            </div>
-            <button 
-              onClick={async () => { await deleteDoc(doc(db, 'chests', chest.id.toString())); fetchChests(); }}
-              className="p-2 text-zinc-800 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );
