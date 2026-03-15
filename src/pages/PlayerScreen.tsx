@@ -63,7 +63,7 @@ export default function PlayerScreen() {
   }
 
   const handleAnswer = async (index: number) => {
-    if (!id || !userId || !me || room.showAnswer || me.hasAnswered) return;
+    if (!id || !userId || !me || room.showAnswer || (me.hasAnswered && me.lastAnsweredQuestionIndex === room.currentQuestionIndex)) return;
     setSelectedAnswer(index);
     await QuizService.submitAnswer(id, room.currentQuestionIndex, index);
   };

@@ -1,8 +1,10 @@
 import React from 'react';
 import { EyeOff, Zap, RefreshCcw, Shield, PackageOpen } from 'lucide-react';
 
+import { InventoryEntry } from '../../types';
+
 interface InventoryProps {
-  inventory: string[];
+  inventory: InventoryEntry[];
   onUseItem: (itemId: string) => void;
 }
 
@@ -24,17 +26,17 @@ export default function Inventory({ inventory, onUseItem }: InventoryProps) {
     <div className="flex flex-col">
       <h3 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4">Inventaire</h3>
       <div className="grid grid-cols-2 gap-3">
-        {inventory.map((itemId, index) => (
+        {inventory.map((entry, index) => (
           <button
-            key={`${itemId}-${index}`}
-            onClick={() => onUseItem(itemId)}
+            key={`${entry.id}-${index}`}
+            onClick={() => onUseItem(entry.itemId)}
             className="flex flex-col items-center justify-center p-4 bg-zinc-900/50 hover:bg-fuchsia-500/10 rounded-2xl transition-all gap-3 border-2 border-zinc-800 hover:border-fuchsia-500/50 hover:shadow-[0_0_20px_rgba(217,70,239,0.1)] group"
-            title={`Utiliser ${itemId}`}
+            title={`Utiliser ${entry.itemId}`}
           >
             <div className="text-zinc-400 group-hover:text-fuchsia-400 transition-colors">
-              {getIcon(itemId)}
+              {getIcon(entry.itemId)}
             </div>
-            <span className="text-xs font-bold capitalize truncate w-full text-center text-zinc-300 group-hover:text-white transition-colors">{itemId}</span>
+            <span className="text-xs font-bold capitalize truncate w-full text-center text-zinc-300 group-hover:text-white transition-colors">{entry.itemId}</span>
           </button>
         ))}
       </div>

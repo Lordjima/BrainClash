@@ -161,7 +161,9 @@ export const RoomService = {
         streak: 0,
         hasAnswered: false,
         isCorrect: null,
-        isProtected: false
+        isProtected: false,
+        lastAnswerIndex: -1,
+        lastAnsweredQuestionIndex: -1
       };
 
       await setDoc(playerRef, player);
@@ -261,7 +263,12 @@ export const RoomService = {
     const batch = writeBatch(db);
     
     playersSnap.docs.forEach(d => {
-      batch.update(d.ref, { hasAnswered: false, isCorrect: null, lastAnswerIndex: null, lastAnsweredQuestionIndex: null });
+      batch.update(d.ref, { 
+        hasAnswered: false, 
+        isCorrect: null, 
+        lastAnswerIndex: -1, 
+        lastAnsweredQuestionIndex: -1 
+      });
     });
 
     batch.update(roomRef, {
