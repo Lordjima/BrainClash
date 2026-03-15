@@ -23,10 +23,6 @@ export default function Navbar() {
           setTwitchUser(twitchUser);
           
           const checkAdmin = async () => {
-            if (user?.email === 'baptiste.louyot@gmail.com') {
-              setIsAdmin(true);
-              return;
-            }
             const adminStatus = await UserService.isAdmin(twitchUser.id);
             setIsAdmin(adminStatus);
           };
@@ -53,6 +49,10 @@ export default function Navbar() {
       window.dispatchEvent(new Event('twitch_user_updated'));
       
       const checkAdmin = async () => {
+        if (auth.currentUser?.email === 'baptiste.louyot@gmail.com') {
+          setIsAdmin(true);
+          return;
+        }
         const adminStatus = await UserService.isAdmin(user.id);
         setIsAdmin(adminStatus);
       };

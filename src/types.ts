@@ -72,6 +72,7 @@ export type GlobalLeaderboardEntry = {
   level: number;
   xp: number;
   processedGames?: string[];
+  role?: 'admin' | 'user';
 };
 
 export type AuctionItem = {
