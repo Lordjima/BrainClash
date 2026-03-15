@@ -4,6 +4,7 @@ import { collection, addDoc, getDocs, deleteDoc, doc, setDoc } from 'firebase/fi
 import { db, auth } from '../lib/firebase';
 import { Theme, ShopItem, Badge, Chest, Question } from '../types';
 import { SeedService } from '../services/SeedService';
+import { UserService } from '../services/UserService';
 import { PageLayout } from '../components/ui/PageLayout';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Button } from '../components/ui/Button';
@@ -24,7 +25,21 @@ export default function AdminDashboard() {
     }
   }, []);
 
-  const isAdmin = twitchUser?.display_name === 'JimaG4ming';
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const checkAdmin = async () => {
+      if (auth.currentUser?.email === 'baptiste.louyot@gmail.com') {
+        setIsAdmin(true);
+        return;
+      }
+      if (twitchUser) {
+        const adminStatus = await UserService.isAdmin(twitchUser.id);
+        setIsAdmin(adminStatus);
+      }
+    };
+    checkAdmin();
+  }, [twitchUser]);
 
   const handleInitializeAdmin = async () => {
     if (!auth.currentUser || !twitchUser) return;

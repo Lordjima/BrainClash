@@ -84,11 +84,12 @@ export default function Home() {
     }
 
     const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'TWITCH_AUTH_SUCCESS') {
-        const user = event.data.user;
-        localStorage.setItem('twitch_user', JSON.stringify(user));
-        setTwitchUser(user);
-      }
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type !== 'TWITCH_AUTH_SUCCESS') return;
+
+      const user = event.data.user;
+      localStorage.setItem('twitch_user', JSON.stringify(user));
+      setTwitchUser(user);
     };
     window.addEventListener('message', handleMessage);
 

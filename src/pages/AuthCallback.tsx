@@ -19,7 +19,7 @@ export default function AuthCallback() {
       .then(data => {
         const user = data.data[0];
         if (window.opener) {
-          window.opener.postMessage({ type: 'TWITCH_AUTH_SUCCESS', user }, '*');
+          window.opener.postMessage({ type: 'TWITCH_AUTH_SUCCESS', user }, window.location.origin);
           window.close();
         }
       })

@@ -150,7 +150,7 @@ export default function Inventory() {
                       { id: 'all', label: 'Tout l\'équipement', icon: Package, color: 'text-zinc-500' },
                       ...availableTypes.map(type => ({
                         id: type,
-                        label: `${type.charAt(0).toUpperCase() + type.slice(1)}s`,
+                        label: `${(type as string).charAt(0).toUpperCase() + (type as string).slice(1)}s`,
                         icon: type === 'attack' ? Zap : type === 'defense' ? Shield : type === 'bonus' ? Star : Heart,
                         color: type === 'attack' ? 'text-red-500' : type === 'defense' ? 'text-blue-500' : type === 'bonus' ? 'text-yellow-500' : 'text-emerald-500'
                       }))

@@ -1,27 +1,41 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LogIn, User, ChevronDown, Shield, PlusCircle, Inbox, Package } from 'lucide-react';
+import { LogIn, User, ChevronDown, Shield, Package } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { signOut } from 'firebase/auth';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../lib/firebase';
-
+import { UserService } from '../../services/UserService';
 import Logo from './Logo';
 
 export default function Navbar() {
   const navigate = useNavigate();
   const [twitchUser, setTwitchUser] = useState<any>(null);
+  const [isAdminState, setIsAdmin] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('twitch_user');
-    if (storedUser) {
-      try {
-        setTwitchUser(JSON.parse(storedUser));
-      } catch (err) {
-        console.error('Error parsing twitch_user:', err);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      const storedUser = localStorage.getItem('twitch_user');
+      if (storedUser) {
+        try {
+          const twitchUser = JSON.parse(storedUser);
+          setTwitchUser(twitchUser);
+          
+          const checkAdmin = async () => {
+            if (user?.email === 'baptiste.louyot@gmail.com') {
+              setIsAdmin(true);
+              return;
+            }
+            const adminStatus = await UserService.isAdmin(twitchUser.id);
+            setIsAdmin(adminStatus);
+          };
+          checkAdmin();
+        } catch (err) {
+          console.error('Error parsing twitch_user:', err);
+        }
       }
-    }
+    });
 
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -30,17 +44,30 @@ export default function Navbar() {
     };
 
     const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'TWITCH_AUTH_SUCCESS') {
-        setTwitchUser(event.data.user);
-        localStorage.setItem('twitch_user', JSON.stringify(event.data.user));
-        window.dispatchEvent(new Event('twitch_user_updated'));
-      }
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type !== 'TWITCH_AUTH_SUCCESS') return;
+
+      const user = event.data.user;
+      setTwitchUser(user);
+      localStorage.setItem('twitch_user', JSON.stringify(user));
+      window.dispatchEvent(new Event('twitch_user_updated'));
+      
+      const checkAdmin = async () => {
+        if (auth.currentUser?.email === 'baptiste.louyot@gmail.com') {
+          setIsAdmin(true);
+          return;
+        }
+        const adminStatus = await UserService.isAdmin(user.id);
+        setIsAdmin(adminStatus);
+      };
+      checkAdmin();
     };
 
     window.addEventListener('message', handleMessage);
     document.addEventListener('mousedown', handleClickOutside);
 
     return () => {
+      unsubscribe();
       window.removeEventListener('message', handleMessage);
       document.removeEventListener('mousedown', handleClickOutside);
     };
@@ -55,10 +82,10 @@ export default function Navbar() {
     window.open(url, 'oauth_popup', 'width=600,height=700');
   };
 
-  const isAdmin = twitchUser?.display_name === 'JimaG4ming';
+  const isAdmin = twitchUser && isAdminState;
 
   return (
-    <nav className="relative z-50 bg-transparent backdrop-blur-md px-4 md:px-8 py-4 shrink-0">
+    <nav className="relative z-50 bg-transparent px-4 md:px-8 py-4 shrink-0">
       <div className="w-full flex justify-between items-center">
         <Link to="/" className="hover:opacity-80 transition-opacity">
           <Logo />
