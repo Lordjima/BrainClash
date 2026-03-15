@@ -26,7 +26,7 @@ export function PageHeader({ title, subtitle, icon, actions, leftContent }: Page
         </div>
       </div>
       {actions && (
-        <div className="flex items-center gap-2 bg-zinc-950/50 backdrop-blur-md p-2 rounded-2xl">
+        <div className="flex items-center gap-2 backdrop-blur-md p-2 rounded-2xl">
           {actions}
         </div>
       )}

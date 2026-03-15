@@ -36,7 +36,7 @@ export type RoomState = {
       name?: string;
       description?: string;
       hostId: string;
-      status: 'lobby' | 'active' | 'finished';
+      status: 'lobby' | 'active' | 'finished' | 'closed';
       questions: Question[];
       currentQuestionIndex: number;
       questionStartTime: number | null;

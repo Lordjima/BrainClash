@@ -30,6 +30,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [twitchUser, setTwitchUser] = useState(localStorage.getItem('twitch_user'));
+
+  useEffect(() => {
+    const handleTwitchUserUpdated = () => {
+      setTwitchUser(localStorage.getItem('twitch_user'));
+    };
+    window.addEventListener('twitch_user_updated', handleTwitchUserUpdated);
+    return () => window.removeEventListener('twitch_user_updated', handleTwitchUserUpdated);
+  }, []);
 
   useEffect(() => {
     if (!db || !auth) {
@@ -70,19 +79,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         // Subscribe to profile
         if (unsubProfile) unsubProfile();
         
-        const storedTwitchUser = localStorage.getItem('twitch_user');
-        if (storedTwitchUser) {
+        if (twitchUser) {
           try {
-            const twitchUser = JSON.parse(storedTwitchUser);
+            const twitchUserObj = JSON.parse(twitchUser);
             // Query profile by username
-            const q = query(collection(db, 'profiles'), where('username', '==', twitchUser.display_name));
+            const q = query(collection(db, 'profiles'), where('username', '==', twitchUserObj.display_name));
             unsubProfile = onSnapshot(q, (snapshot) => {
               if (!snapshot.empty) {
                 setUserProfile(snapshot.docs[0].data() as GlobalLeaderboardEntry);
               } else {
                 // Fallback if not found in Firestore
                 setUserProfile({
-                  username: twitchUser.display_name,
+                  username: twitchUserObj.display_name,
                   score: 0,
                   games_played: 0,
                   date: Date.now(),
@@ -193,41 +201,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       console.error('Chests error:', err);
     });
 
-    const handleTwitchUserUpdated = () => {
-      const storedUser = localStorage.getItem('twitch_user');
-      if (storedUser) {
-        try {
-          const twitchUser = JSON.parse(storedUser);
-          // Query profile by username
-          const q = query(collection(db, 'profiles'), where('username', '==', twitchUser.display_name));
-          getDocs(q).then((snapshot) => {
-            if (!snapshot.empty) {
-              setUserProfile(snapshot.docs[0].data() as GlobalLeaderboardEntry);
-            } else {
-              setUserProfile({
-                username: twitchUser.display_name,
-                score: 0,
-                games_played: 0,
-                date: Date.now(),
-                coins: 0,
-                brainCoins: 0,
-                is_sub: false,
-                badges: [],
-                inventory: [],
-                level: 1,
-                xp: 0
-              } as any);
-            }
-          });
-        } catch (e) {
-          console.error('Error parsing twitch_user:', e);
-        }
-      } else {
-        setUserProfile(null);
-      }
-    };
-    window.addEventListener('twitch_user_updated', handleTwitchUserUpdated);
-
     return () => {
       unsubAuth();
       unsubLeaderboard();
@@ -236,9 +209,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       unsubBadges();
       unsubChests();
       if (unsubProfile) unsubProfile();
-      window.removeEventListener('twitch_user_updated', handleTwitchUserUpdated);
     };
-  }, []);
+  }, [twitchUser]);
 
   return (
     <DataContext.Provider value={{ leaderboard, themes, userProfile, shopItems, badges, chests, isLoaded, isLoading, setIsLoading, error }}>

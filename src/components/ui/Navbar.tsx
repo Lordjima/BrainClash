@@ -58,7 +58,7 @@ export default function Navbar() {
   const isAdmin = twitchUser?.display_name === 'JimaG4ming';
 
   return (
-    <nav className="relative z-50 bg-zinc-950/50 backdrop-blur-md border-b border-white/5 p-4 md:px-8 shrink-0">
+    <nav className="relative z-50 bg-transparent backdrop-blur-md px-4 md:px-8 py-4 shrink-0">
       <div className="w-full flex justify-between items-center">
         <Link to="/" className="hover:opacity-80 transition-opacity">
           <Logo />
@@ -69,7 +69,7 @@ export default function Navbar() {
             <div className="relative" ref={menuRef}>
               <button 
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="flex items-center gap-3 bg-zinc-900/50 hover:bg-zinc-800/80 px-2 py-2 pr-4 rounded-full border border-white/5 transition-all group"
+                className="cursor-pointer flex items-center gap-3 bg-zinc-900/50 hover:bg-zinc-800/80 px-2 py-2 pr-4 rounded-full border border-white/5 transition-all group"
               >
                 <div className="relative">
                   <img src={twitchUser.profile_image_url} alt="Profile" className="w-10 h-10 rounded-full border-2 border-white/10 group-hover:border-fuchsia-500/50 transition-colors" referrerPolicy="no-referrer" />
@@ -120,10 +120,11 @@ export default function Navbar() {
                           localStorage.removeItem('twitch_user');
                           setTwitchUser(null);
                           setIsMenuOpen(false);
+                          window.dispatchEvent(new Event('twitch_user_updated'));
                           await signOut(auth);
                           navigate('/');
                         }}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-red-400 hover:bg-red-500/10 rounded-xl transition-all group"
+                        className="cursor-pointer w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-red-400 hover:bg-red-500/10 rounded-xl transition-all group"
                       >
                         <LogIn className="w-4 h-4 rotate-180" />
                         Déconnexion

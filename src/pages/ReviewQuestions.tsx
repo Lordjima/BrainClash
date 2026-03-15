@@ -58,7 +58,7 @@ export default function ReviewQuestions() {
   };
 
   return (
-    <PageLayout maxWidth="max-w-4xl">
+    <PageLayout>
       <PageHeader
         title="Vérification des questions"
         subtitle="Validez les questions proposées par la communauté"

@@ -252,6 +252,15 @@ export class QuizService {
     }
   }
 
+  static async closeRoom(roomCode: string): Promise<void> {
+    const roomRef = doc(db, this.ROOMS_COLLECTION, roomCode);
+    try {
+      await updateDoc(roomRef, { status: 'closed' });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, this.ROOMS_COLLECTION + '/' + roomCode);
+    }
+  }
+
   /**
    * Finish the game and update global profiles
    */

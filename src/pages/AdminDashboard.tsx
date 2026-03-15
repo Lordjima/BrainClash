@@ -8,6 +8,8 @@ import { PageLayout } from '../components/ui/PageLayout';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Button } from '../components/ui/Button';
 
+import { EmptyState } from '../components/ui/EmptyState';
+
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<'themes' | 'items' | 'badges' | 'chests'>('themes');
   const [twitchUser, setTwitchUser] = useState<any>(null);
@@ -55,13 +57,15 @@ export default function AdminDashboard() {
 
   if (!isAdmin) {
     return (
-      <div className="h-full flex items-center justify-center bg-zinc-950 text-white p-6">
-        <div className="text-center">
-          <Shield className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold mb-2">Accès Refusé</h1>
-          <p className="text-zinc-400">Seul l'administrateur JimaG4ming peut accéder à cette page.</p>
-        </div>
-      </div>
+      <PageLayout maxWidth="max-w-7xl" contentClassName="flex items-center justify-center">
+        <EmptyState
+          icon={<Shield className="w-12 h-12 text-red-500" />}
+          title="Accès Refusé"
+          description="Seul l'administrateur JimaG4ming peut accéder à cette page."
+          actionText="RETOUR À L'ACCUEIL"
+          actionLink="/"
+        />
+      </PageLayout>
     );
   }
 
@@ -84,7 +88,7 @@ export default function AdminDashboard() {
   };
 
   return (
-    <PageLayout maxWidth="max-w-6xl">
+    <PageLayout maxWidth="max-w-full" contentClassName="overflow-y-auto custom-scrollbar">
       <PageHeader
         title="Panel Admin"
         subtitle="Gestion du contenu de BrainClash"

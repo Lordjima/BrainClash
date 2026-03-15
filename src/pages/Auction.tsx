@@ -38,7 +38,7 @@ export default function Auction() {
   });
 
   return (
-    <PageLayout maxWidth="max-w-7xl">
+    <PageLayout>
       <PageHeader
         title="Hôtel des Ventes"
         subtitle="Le marché noir des cerveaux"

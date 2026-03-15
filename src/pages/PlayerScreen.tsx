@@ -4,6 +4,7 @@ import { doc, onSnapshot, updateDoc, arrayUnion, increment } from 'firebase/fire
 import { db, auth } from '../lib/firebase';
 import { RoomState, Player } from '../types';
 import { QuizService } from '../services/QuizService';
+import { PageLayout } from '../components/ui/PageLayout';
 import { motion, AnimatePresence } from 'motion/react';
 import type { GlobalLeaderboardEntry } from '../types';
 
@@ -39,6 +40,8 @@ export default function PlayerScreen() {
         
         if (updatedRoom.status === 'finished') {
           setShowWinner(true);
+        } else if (updatedRoom.status === 'closed') {
+          navigate('/');
         } else if (updatedRoom.status === 'active' && !updatedRoom.showAnswer) {
           const me = userId ? updatedRoom.players[userId] : null;
           if (me && !me.hasAnswered) {
@@ -173,7 +176,7 @@ export default function PlayerScreen() {
   };
 
   return (
-    <div className="h-full w-full text-white flex flex-col font-sans relative overflow-hidden box-border">
+    <PageLayout>
       {activeMalus && (
         <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-red-500/90 backdrop-blur text-white px-8 py-6 rounded-3xl font-black text-2xl shadow-2xl animate-bounce border border-red-400">
           Attaque de {activeMalus.source} !
@@ -223,7 +226,7 @@ export default function PlayerScreen() {
         <Leaderboard players={sortedPlayers} meId={userId || ''} myRank={myRank} />
         {me && <Inventory inventory={profile?.inventory || []} onUseItem={handleUseItem} />}
       </div>
-    </div>
-    </div>
+      </div>
+    </PageLayout>
   );
 }

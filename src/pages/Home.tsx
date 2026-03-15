@@ -28,6 +28,8 @@ import ChestOpening from '../components/ChestOpening';
 import { Chest, ShopItem } from '../types';
 import { auth } from '../lib/firebase';
 
+import { PageLayout } from '../components/ui/PageLayout';
+
 export default function Home() {
   const navigate = useNavigate();
   const { leaderboard, isLoaded, userProfile, shopItems, badges: allBadges, chests } = useData();
@@ -158,7 +160,7 @@ export default function Home() {
   };
 
   return (
-    <div className="bc-page-container">
+    <PageLayout>
       <AnimatePresence mode="wait">
         {isLoading ? (
           <motion.div 
@@ -198,7 +200,7 @@ export default function Home() {
             key="main"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="bc-content-wrapper flex flex-col items-center justify-center flex-1"
+            className="w-full flex flex-col items-center justify-center flex-1"
           >
             {/* Decorative Background Elements removed to prevent scroll */}
             
@@ -321,6 +323,6 @@ export default function Home() {
           />
         )}
       </AnimatePresence>
-    </div>
+    </PageLayout>
   );
 }

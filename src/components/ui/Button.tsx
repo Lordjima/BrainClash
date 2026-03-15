@@ -11,7 +11,7 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 export function Button({ variant = 'primary', size = 'md', className, children, ...props }: ButtonProps) {
-  const baseClasses = "font-black uppercase tracking-widest transition-all active:scale-95 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none";
+  const baseClasses = "cursor-pointer font-black uppercase tracking-widest transition-all active:scale-95 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none";
   
   const variants = {
     primary: "bg-accent-600 hover:bg-accent-500 text-white shadow-md shadow-accent-600/10 disabled:bg-zinc-800 disabled:text-zinc-500 disabled:shadow-none",

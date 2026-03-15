@@ -43,7 +43,7 @@ export default function Leaderboard() {
   };
 
   return (
-    <PageLayout maxWidth="max-w-4xl">
+    <PageLayout>
       <PageHeader
         title="Classements"
         subtitle="Les légendes de l'arène"
@@ -88,14 +88,14 @@ export default function Leaderboard() {
       </div>
 
       {/* List */}
-      <Card className="p-0 overflow-hidden">
-        <div className="p-6 border-b border-zinc-800 bg-zinc-900/50 flex items-center text-[10px] font-black text-zinc-500 uppercase tracking-widest">
+      <Card className="p-0 overflow-hidden flex flex-col flex-1 min-h-0">
+        <div className="p-6 border-b border-zinc-800 bg-zinc-900/50 flex items-center text-[10px] font-black text-zinc-500 uppercase tracking-widest shrink-0">
           <div className="w-12">Rang</div>
           <div className="flex-1">Joueur</div>
           <div className="w-32 text-right">Valeur</div>
         </div>
 
-        <div className="divide-y divide-zinc-800/50">
+        <div className="divide-y divide-zinc-800/50 overflow-y-auto custom-scrollbar flex-1">
           {sortedData.map((user, index) => (
             <motion.div
               initial={{ opacity: 0, x: -20 }}

@@ -8,11 +8,14 @@ import { QuizService } from '../services/QuizService';
 import { PageLayout } from '../components/ui/PageLayout';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Button } from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
+
+import { EmptyState } from '../components/ui/EmptyState';
 
 export default function Inventory() {
   const navigate = useNavigate();
   const { userProfile, shopItems } = useData();
-  const [filter, setFilter] = useState<'all' | 'attack' | 'defense' | 'utility'>('all');
+  const [filter, setFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedItem, setSelectedItem] = useState<any>(null);
 
@@ -23,21 +26,15 @@ export default function Inventory() {
 
   if (!userProfile) {
     return (
-      <div className="h-full flex items-center justify-center p-6 bg-zinc-950">
-        <div className="text-center space-y-8 max-w-md">
-          <div className="w-24 h-24 bg-zinc-900 rounded-[40px] flex items-center justify-center mx-auto border border-white/5 shadow-2xl">
-            <ShoppingBag className="w-12 h-12 text-zinc-700" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-black uppercase italic tracking-tighter">Accès Restreint</h2>
-            <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mt-2">Connectez-vous pour accéder à votre équipement de combat</p>
-          </div>
-          <Button onClick={() => navigate('/')} variant="secondary" className="w-full">
-            <ArrowLeft className="w-4 h-4" />
-            RETOUR À L'ACCUEIL
-          </Button>
-        </div>
-      </div>
+      <PageLayout maxWidth="max-w-7xl" contentClassName="flex items-center justify-center">
+        <EmptyState
+          icon={<ShoppingBag className="w-12 h-12 text-zinc-700" />}
+          title="Accès Restreint"
+          description="Connectez-vous pour accéder à votre équipement de combat"
+          actionText="RETOUR À L'ACCUEIL"
+          actionLink="/"
+        />
+      </PageLayout>
     );
   }
 
@@ -57,16 +54,7 @@ export default function Inventory() {
   };
 
   return (
-    <PageLayout maxWidth="max-w-7xl">
-      {/* Immersive Background Effects */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-fuchsia-600/10 blur-[120px] rounded-full" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/10 blur-[120px] rounded-full" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-5" />
-      </div>
-
-      <div className="relative z-10">
-        
+    <PageLayout>
         <PageHeader
           title="Inventaire"
           subtitle="Arsenal de combat & Équipements"
@@ -109,7 +97,7 @@ export default function Inventory() {
           {/* Left Sidebar: Character & Filters */}
           <div className="lg:w-80 flex flex-col gap-6 shrink-0">
             {/* Character Preview Placeholder */}
-            <div className="bg-zinc-900/40 backdrop-blur-2xl border border-white/5 rounded-[40px] p-6 flex flex-col items-center relative overflow-hidden group">
+            <Card className="flex flex-col items-center relative overflow-hidden group">
               <div className="absolute inset-0 bg-gradient-to-b from-fuchsia-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
               <div className="w-32 h-32 rounded-full bg-zinc-950 border-4 border-zinc-800 flex items-center justify-center overflow-hidden mb-4 shadow-2xl relative z-10">
                 {userProfile.avatar ? (
@@ -136,7 +124,7 @@ export default function Inventory() {
                   <span className="text-sm font-black font-mono">1.5</span>
                 </div>
               </div>
-            </div>
+            </Card>
 
             <div className="bg-zinc-900/40 backdrop-blur-2xl border border-white/5 rounded-[40px] p-6 space-y-8 flex-1">
               <div>
@@ -156,25 +144,32 @@ export default function Inventory() {
               <div>
                 <h3 className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.3em] mb-4 ml-1">Catégories</h3>
                 <div className="grid grid-cols-1 gap-2.5">
-                  {[
-                    { id: 'all', label: 'Tout l\'équipement', icon: Package },
-                    { id: 'attack', label: 'Modules d\'attaque', icon: Zap, color: 'text-red-500' },
-                    { id: 'defense', label: 'Systèmes de défense', icon: Shield, color: 'text-blue-500' },
-                    { id: 'utility', label: 'Utilitaires tactiques', icon: Heart, color: 'text-emerald-500' },
-                  ].map(cat => (
-                    <button
-                      key={cat.id}
-                      onClick={() => setFilter(cat.id as any)}
-                      className={`flex items-center gap-4 px-5 py-4 rounded-2xl text-[10px] font-black transition-all uppercase tracking-widest group ${
-                        filter === cat.id 
-                          ? 'bg-fuchsia-600 text-white shadow-xl shadow-fuchsia-600/20' 
-                          : 'text-zinc-500 hover:text-white hover:bg-white/5'
-                      }`}
-                    >
-                      <cat.icon className={`w-5 h-5 transition-transform group-hover:scale-110 ${filter === cat.id ? 'text-white' : cat.color}`} />
-                      {cat.label}
-                    </button>
-                  ))}
+                  {(() => {
+                    const availableTypes = Array.from(new Set(shopItems.map(item => item.type)));
+                    const filterOptions = [
+                      { id: 'all', label: 'Tout l\'équipement', icon: Package, color: 'text-zinc-500' },
+                      ...availableTypes.map(type => ({
+                        id: type,
+                        label: `${type.charAt(0).toUpperCase() + type.slice(1)}s`,
+                        icon: type === 'attack' ? Zap : type === 'defense' ? Shield : type === 'bonus' ? Star : Heart,
+                        color: type === 'attack' ? 'text-red-500' : type === 'defense' ? 'text-blue-500' : type === 'bonus' ? 'text-yellow-500' : 'text-emerald-500'
+                      }))
+                    ];
+                    return filterOptions.map(cat => (
+                      <button
+                        key={cat.id}
+                        onClick={() => setFilter(cat.id as any)}
+                        className={`flex items-center gap-4 px-5 py-4 rounded-2xl text-[10px] font-black transition-all uppercase tracking-widest group ${
+                          filter === cat.id 
+                            ? 'bg-fuchsia-600 text-white shadow-xl shadow-fuchsia-600/20' 
+                            : 'text-zinc-500 hover:text-white hover:bg-white/5'
+                        }`}
+                      >
+                        <cat.icon className={`w-5 h-5 transition-transform group-hover:scale-110 ${filter === cat.id ? 'text-white' : cat.color}`} />
+                        {cat.label}
+                      </button>
+                    ));
+                  })()}
                 </div>
               </div>
             </div>
@@ -185,13 +180,11 @@ export default function Inventory() {
             {filteredItems.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-5">
                 {filteredItems.map((item, idx) => (
-                  <motion.div
+                  <Card
                     key={`${item.id}-${idx}`}
-                    layoutId={`${item.id}-${idx}`}
+                    hoverable
                     onClick={() => setSelectedItem(item)}
-                    whileHover={{ scale: 1.05, y: -8 }}
-                    whileTap={{ scale: 0.95 }}
-                    className={`aspect-square rounded-[40px] bg-zinc-950/40 border-2 p-5 flex flex-col items-center justify-center gap-4 cursor-pointer transition-all relative group overflow-hidden ${
+                    className={`aspect-square p-5 flex flex-col items-center justify-center gap-4 cursor-pointer transition-all relative overflow-hidden ${
                       selectedItem?.id === item.id 
                         ? 'border-fuchsia-500 bg-fuchsia-500/10 shadow-[0_0_40px_rgba(217,70,239,0.2)]' 
                         : 'border-white/5 hover:border-white/20 hover:bg-zinc-900/50'
@@ -218,7 +211,7 @@ export default function Inventory() {
                     <div className="absolute top-5 right-5 bg-zinc-900/80 backdrop-blur-md border border-white/10 px-2.5 py-1 rounded-xl text-[9px] font-black text-zinc-500 group-hover:text-white transition-colors">
                       x1
                     </div>
-                  </motion.div>
+                  </Card>
                 ))}
               </div>
             ) : (
@@ -335,7 +328,6 @@ export default function Inventory() {
             )}
           </AnimatePresence>
         </div>
-      </div>
-    </PageLayout>
-  );
-}
+      </PageLayout>
+    );
+  }

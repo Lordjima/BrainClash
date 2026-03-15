@@ -44,7 +44,7 @@ export default function Boutique() {
   };
 
   return (
-    <PageLayout maxWidth="max-w-7xl">
+    <PageLayout>
       <Toast message={error} type="error" />
       <Toast message={success} type="success" />
 

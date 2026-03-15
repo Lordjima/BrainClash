@@ -12,6 +12,7 @@ import { QuizService } from '../services/QuizService';
 import { PageLayout } from '../components/ui/PageLayout';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Button } from '../components/ui/Button';
+import { Modal } from '../components/ui/Modal';
 
 export default function CreateQuiz() {
   const navigate = useNavigate();
@@ -124,7 +125,7 @@ export default function CreateQuiz() {
   };
 
   return (
-    <PageLayout maxWidth="max-w-7xl">
+    <PageLayout>
       <PageHeader
         title="CRÉATION DE QUIZ"
         subtitle="Configurez votre session de jeu"
@@ -195,6 +196,16 @@ export default function CreateQuiz() {
               </div>
             </div>
           </div>
+          
+          <Button
+            type="submit"
+            disabled={!canLaunch}
+            className="w-full py-6 text-lg"
+            size="lg"
+          >
+            <Play className="w-6 h-6 fill-current" />
+            Lancer le Quiz
+          </Button>
         </div>
 
         {/* Right Column: Themes List */}
@@ -213,91 +224,56 @@ export default function CreateQuiz() {
               )}
             </div>
 
-            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-              {Object.entries(themes).map(([id, t]: [string, any]) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => toggleTheme(id)}
-                  className={`w-full flex items-center justify-between p-4 rounded-xl transition-all border ${
-                    selectedThemes.includes(id)
-                      ? 'bg-violet-600/10 border-violet-500 text-white'
-                      : 'bg-transparent border-zinc-800 text-zinc-400 hover:border-zinc-600'
-                  }`}
-                >
-                  <div className="flex flex-col items-start">
-                    <span className="text-sm font-medium">{t.name}</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+              {Object.entries(themes).map(([id, t]: [string, any]) => {
+                const isSelected = selectedThemes.includes(id);
+                return (
+                  <motion.button
+                    key={id} type="button" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                    onClick={() => toggleTheme(id)}
+                    className={`relative w-full flex flex-col items-start p-4 rounded-xl transition-all border ${isSelected ? 'bg-violet-600/20 border-violet-500 text-white' : 'bg-zinc-950/50 border-zinc-800 text-zinc-400 hover:border-zinc-600'}`}
+                  >
+                    <span className="text-sm font-bold mb-1">{t.name}</span>
                     <span className="text-[10px] text-zinc-500">{t.questions?.length || 0} questions</span>
-                  </div>
-                  {selectedThemes.includes(id) && <Check className="w-4 h-4 text-violet-400" />}
-                </button>
-              ))}
+                    {isSelected && <div className="absolute top-2 right-2 bg-violet-500 rounded-full p-0.5"><Check className="w-3 h-3 text-white" /></div>}
+                  </motion.button>
+                );
+              })}
             </div>
-            <div className="mt-4 p-4 bg-zinc-950 rounded-xl border border-zinc-800">
-              <div className="flex justify-between text-sm">
-                <span className="text-zinc-400">Total questions sélectionnées :</span>
-                <span className={`font-bold ${totalAvailableQuestions < questionCount ? 'text-red-500' : 'text-emerald-500'}`}>
+            <div className="mt-4 p-4 bg-zinc-950 rounded-xl border border-zinc-800 space-y-2">
+              <div className="flex justify-between text-xs font-bold uppercase tracking-widest">
+                <span className="text-zinc-400">Questions :</span>
+                <span className={`font-mono ${totalAvailableQuestions < questionCount ? 'text-red-500' : 'text-emerald-500'}`}>
                   {totalAvailableQuestions} / {questionCount}
                 </span>
               </div>
+              <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full transition-all duration-500 ${totalAvailableQuestions < questionCount ? 'bg-red-500' : 'bg-emerald-500'}`}
+                  style={{ width: `${Math.min(100, (totalAvailableQuestions / questionCount) * 100)}%` }}
+                />
+              </div>
               {totalAvailableQuestions < questionCount && (
-                <p className="text-[10px] text-red-500 mt-2">
+                <p className="text-[10px] text-red-500">
                   Sélectionnez plus de thèmes pour atteindre le nombre de questions souhaité.
                 </p>
               )}
             </div>
           </div>
-
-          <Button
-            type="submit"
-            disabled={!canLaunch}
-            className="w-full py-6 text-lg"
-            size="lg"
-          >
-            <Play className="w-6 h-6 fill-current" />
-            Lancer le Quiz
-          </Button>
         </div>
       </form>
 
       {/* History Modal */}
-      <AnimatePresence>
-        {isHistoryOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsHistoryOpen(false)}
-              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-2xl bg-zinc-900 border border-zinc-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[80%]"
-            >
-              <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
-                <h2 className="text-2xl font-bold">Historique des Quiz</h2>
-                <button
-                  onClick={() => setIsHistoryOpen(false)}
-                  className="p-2 hover:bg-zinc-800 rounded-xl transition-colors"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-                <QuizHistory
-                  savedQuizzes={savedQuizzes}
-                  themes={themes}
-                  onLaunch={handleLaunchSaved}
-                  onDelete={handleDeleteSaved}
-                />
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <Modal isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} title="Historique des Quiz" maxWidth="max-w-2xl">
+        <div className="flex-1 overflow-y-auto custom-scrollbar max-h-[60vh]">
+          <QuizHistory
+            savedQuizzes={savedQuizzes}
+            themes={themes}
+            onLaunch={handleLaunchSaved}
+            onDelete={handleDeleteSaved}
+          />
+        </div>
+      </Modal>
     </PageLayout>
   );
 }

@@ -90,7 +90,7 @@ export default function HostDashboard() {
   const handleClose = async () => {
     if (!id) return;
     setIsLoading(true);
-    await QuizService.finishGame(id);
+    await QuizService.closeRoom(id);
     setIsLoading(false);
     navigate('/');
   };
@@ -102,7 +102,7 @@ export default function HostDashboard() {
   const answersCount = playersList.filter(p => p.hasAnswered).length;
 
   return (
-    <PageLayout maxWidth="max-w-6xl">
+    <PageLayout maxWidth="max-w-full" contentClassName="overflow-y-auto custom-scrollbar">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 flex flex-col gap-4">
           <HostHeader room={room} onClose={handleClose} />

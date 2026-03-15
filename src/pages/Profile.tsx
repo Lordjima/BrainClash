@@ -10,6 +10,9 @@ import * as LucideIcons from 'lucide-react';
 import { PageLayout } from '../components/ui/PageLayout';
 import { PageHeader } from '../components/ui/PageHeader';
 
+import { EmptyState } from '../components/ui/EmptyState';
+import { Modal } from '../components/ui/Modal';
+
 export default function Profile() {
   const { leaderboard, shopItems: allShopItems, userProfile, badges: allBadges } = useData();
   const [user, setUser] = useState<any>(null);
@@ -33,6 +36,7 @@ export default function Profile() {
   const handleLogout = async () => {
     localStorage.removeItem('twitch_user');
     setUser(null);
+    window.dispatchEvent(new Event('twitch_user_updated'));
     await signOut(auth);
     navigate('/');
   };
@@ -91,9 +95,23 @@ export default function Profile() {
     }
   };
 
+  if (!user) {
+    return (
+      <PageLayout maxWidth="max-w-7xl" contentClassName="flex items-center justify-center">
+        <EmptyState
+          icon={<User className="w-12 h-12 text-zinc-700" />}
+          title="Accès Restreint"
+          description="Connectez-vous pour voir votre progression."
+          actionText="RETOUR À L'ACCUEIL"
+          actionLink="/"
+        />
+      </PageLayout>
+    );
+  }
+
 
   return (
-    <PageLayout maxWidth="max-w-7xl">
+    <PageLayout>
       <PageHeader
         title="Profil"
         subtitle="Vos statistiques et inventaire"
@@ -106,8 +124,6 @@ export default function Profile() {
         <div className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-8 text-center relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-purple-600/10 blur-[60px] -mr-16 -mt-16" />
           
-          {user ? (
-            <>
               <div className="relative inline-block mb-4">
                 <img 
                   src={user.profile_image_url} 
@@ -125,7 +141,7 @@ export default function Profile() {
                 <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest ${userProfile?.is_sub ? 'bg-purple-500 text-white' : 'bg-zinc-800 text-zinc-500'}`}>
                   {userProfile?.is_sub ? 'Abonné Premium' : 'Joueur Standard'}
                 </span>
-                <button onClick={handleToggleSub} className="text-[10px] font-bold text-zinc-600 hover:text-white transition-colors uppercase">
+                <button onClick={handleToggleSub} className="cursor-pointer text-[10px] font-bold text-zinc-600 hover:text-white transition-colors uppercase">
                   (Simuler)
                 </button>
               </div>
@@ -162,7 +178,7 @@ export default function Profile() {
                     <div className="text-xl font-black font-mono">{userProfile?.brainCoins || 0}</div>
                     <button 
                       onClick={() => setShowPayPal(true)}
-                      className="absolute -top-2 -right-2 w-6 h-6 bg-fuchsia-600 rounded-full flex items-center justify-center hover:scale-110 transition-transform shadow-lg shadow-fuchsia-600/50"
+                      className="cursor-pointer absolute -top-2 -right-2 w-6 h-6 bg-fuchsia-600 rounded-full flex items-center justify-center hover:scale-110 transition-transform shadow-lg shadow-fuchsia-600/50"
                       title="Acheter des BrainCoins"
                     >
                       <LucideIcons.Plus className="w-4 h-4 text-white" />
@@ -172,20 +188,11 @@ export default function Profile() {
 
                 <button
                   onClick={handleLogout}
-                  className="w-full mt-8 bg-zinc-800 hover:bg-red-600 text-white py-3 rounded-2xl font-black text-xs transition-all flex items-center justify-center gap-2 group"
+                  className="cursor-pointer w-full mt-8 bg-zinc-800 hover:bg-red-600 text-white py-3 rounded-2xl font-black text-xs transition-all flex items-center justify-center gap-2 group"
                 >
                   <LogOut className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
                   DÉCONNEXION
                 </button>
-              </>
-            ) : (
-              <div className="py-12">
-                <p className="text-zinc-500 font-bold mb-6">Connectez-vous pour voir votre progression.</p>
-                <Link to="/" className="bg-white text-black px-8 py-3 rounded-2xl font-black transition-all active:scale-95">
-                  RETOUR
-                </Link>
-              </div>
-            )}
           </div>
         </div>
 
@@ -297,74 +304,61 @@ export default function Profile() {
       </div>
 
       {/* PayPal Modal */}
-      {showPayPal && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-[32px] p-6 md:p-8 space-y-6 shadow-2xl relative overflow-y-auto custom-scrollbar max-h-[90%]">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-fuchsia-600/10 blur-[60px] -mr-16 -mt-16" />
-            
-            <div className="flex items-center justify-between relative">
-              <h2 className="text-2xl font-black italic uppercase tracking-tighter">Acheter des BrainCoins</h2>
-              <button onClick={() => setShowPayPal(false)} className="p-2 hover:bg-zinc-800 rounded-xl transition-colors">
-                <LucideIcons.X className="w-6 h-6" />
-              </button>
-            </div>
+      <Modal isOpen={showPayPal} onClose={() => setShowPayPal(false)} title="Acheter des BrainCoins" maxWidth="max-w-md">
+        <div className="space-y-6 relative">
+          <div className="p-6 bg-zinc-950 rounded-2xl border border-zinc-800 text-center space-y-2">
+            <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Taux de conversion</div>
+            <div className="text-3xl font-black text-white">1 <span className="text-fuchsia-500">B</span> = 1.00 €</div>
+          </div>
 
-            <div className="space-y-6 relative">
-              <div className="p-6 bg-zinc-950 rounded-2xl border border-zinc-800 text-center space-y-2">
-                <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Taux de conversion</div>
-                <div className="text-3xl font-black text-white">1 <span className="text-fuchsia-500">B</span> = 1.00 €</div>
+          <div className="space-y-3">
+            <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest ml-1">Quantité</label>
+            <div className="grid grid-cols-3 gap-2">
+              {[5, 10, 20, 50, 100].map(amount => (
+                <button
+                  key={amount}
+                  onClick={() => setPurchaseAmount(amount)}
+                  className={`py-3 rounded-xl font-black transition-all ${
+                    purchaseAmount === amount 
+                      ? 'bg-fuchsia-600 text-white shadow-lg shadow-fuchsia-600/20' 
+                      : 'bg-zinc-800 text-zinc-500 hover:text-white'
+                  }`}
+                >
+                  {amount} B
+                </button>
+              ))}
+              <div className="bg-zinc-800 rounded-xl flex items-center px-3">
+                <input 
+                  type="number" 
+                  value={purchaseAmount}
+                  onChange={(e) => setPurchaseAmount(Math.max(1, parseInt(e.target.value) || 0))}
+                  className="w-full bg-transparent text-center font-black outline-none text-white"
+                />
               </div>
-
-              <div className="space-y-3">
-                <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest ml-1">Quantité</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[5, 10, 20, 50, 100].map(amount => (
-                    <button
-                      key={amount}
-                      onClick={() => setPurchaseAmount(amount)}
-                      className={`py-3 rounded-xl font-black transition-all ${
-                        purchaseAmount === amount 
-                          ? 'bg-fuchsia-600 text-white shadow-lg shadow-fuchsia-600/20' 
-                          : 'bg-zinc-800 text-zinc-500 hover:text-white'
-                      }`}
-                    >
-                      {amount} B
-                    </button>
-                  ))}
-                  <div className="bg-zinc-800 rounded-xl flex items-center px-3">
-                    <input 
-                      type="number" 
-                      value={purchaseAmount}
-                      onChange={(e) => setPurchaseAmount(Math.max(1, parseInt(e.target.value) || 0))}
-                      className="w-full bg-transparent text-center font-black outline-none text-white"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 bg-blue-500/5 border border-blue-500/20 rounded-2xl flex items-center justify-between">
-                <div className="text-sm font-bold text-zinc-400">Total à payer</div>
-                <div className="text-2xl font-black text-blue-400">{purchaseAmount.toFixed(2)} €</div>
-              </div>
-
-              {/* Mock PayPal Button */}
-              <button 
-                onClick={handlePurchaseSuccess}
-                className="w-full bg-[#0070ba] hover:bg-[#005ea6] text-white py-4 rounded-2xl font-black text-lg transition-all flex items-center justify-center gap-3 shadow-xl shadow-blue-500/10"
-              >
-                <div className="flex items-center font-serif italic font-bold text-xl">
-                  <span className="text-white">Pay</span>
-                  <span className="text-[#009cde]">Pal</span>
-                </div>
-              </button>
-              
-              <p className="text-[10px] text-zinc-600 text-center font-medium">
-                Paiement sécurisé via PayPal. Les BrainCoins seront ajoutés instantanément à votre compte.
-              </p>
             </div>
           </div>
+
+          <div className="p-4 bg-blue-500/5 border border-blue-500/20 rounded-2xl flex items-center justify-between">
+            <div className="text-sm font-bold text-zinc-400">Total à payer</div>
+            <div className="text-2xl font-black text-blue-400">{purchaseAmount.toFixed(2)} €</div>
+          </div>
+
+          {/* Mock PayPal Button */}
+          <button 
+            onClick={handlePurchaseSuccess}
+            className="w-full bg-[#0070ba] hover:bg-[#005ea6] text-white py-4 rounded-2xl font-black text-lg transition-all flex items-center justify-center gap-3 shadow-xl shadow-blue-500/10"
+          >
+            <div className="flex items-center font-serif italic font-bold text-xl">
+              <span className="text-white">Pay</span>
+              <span className="text-[#009cde]">Pal</span>
+            </div>
+          </button>
+          
+          <p className="text-[10px] text-zinc-600 text-center font-medium">
+            Paiement sécurisé via PayPal. Les BrainCoins seront ajoutés instantanément à votre compte.
+          </p>
         </div>
-      )}
+      </Modal>
     </PageLayout>
   );
 }

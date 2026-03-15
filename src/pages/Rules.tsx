@@ -5,7 +5,7 @@ import { Info } from 'lucide-react';
 
 export default function Rules() {
   return (
-    <PageLayout maxWidth="max-w-4xl">
+    <PageLayout>
       <PageHeader
         title="Règles du Jeu"
         subtitle="Comment jouer à BrainClash"
