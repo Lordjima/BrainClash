@@ -1,17 +1,21 @@
 import { collection, doc, setDoc, getDocs, writeBatch } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { Theme, ShopItem, Badge, Chest } from '../types';
 
 export const SeedService = {
   async seedAll() {
     if (!db) return;
     
-    await this.seedThemes();
-    await this.seedSpells();
-    await this.seedBadges();
-    await this.seedChests();
-    
-    console.log('Seeding completed!');
+    try {
+      await this.seedThemes();
+      await this.seedSpells();
+      await this.seedBadges();
+      await this.seedChests();
+      console.log('Seeding completed!');
+    } catch (err) {
+      console.error('Seeding failed:', err);
+      throw err;
+    }
   },
 
   async seedThemes() {
@@ -47,7 +51,12 @@ export const SeedService = {
     ];
 
     for (const theme of themes) {
-      await setDoc(doc(db, 'themes', theme.id.toString()), theme);
+      const path = `themes/${theme.id}`;
+      try {
+        await setDoc(doc(db, 'themes', theme.id.toString()), theme);
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, path);
+      }
     }
   },
 
@@ -101,7 +110,12 @@ export const SeedService = {
     ];
 
     for (const spell of spells) {
-      await setDoc(doc(db, 'shopItems', spell.id.toString()), spell);
+      const path = `shopItems/${spell.id}`;
+      try {
+        await setDoc(doc(db, 'shopItems', spell.id.toString()), spell);
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, path);
+      }
     }
   },
 
@@ -113,7 +127,12 @@ export const SeedService = {
     ];
 
     for (const badge of badges) {
-      await setDoc(doc(db, 'badges', badge.id.toString()), badge);
+      const path = `badges/${badge.id}`;
+      try {
+        await setDoc(doc(db, 'badges', badge.id.toString()), badge);
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, path);
+      }
     }
   },
 
@@ -140,7 +159,12 @@ export const SeedService = {
     ];
 
     for (const chest of chests) {
-      await setDoc(doc(db, 'chests', chest.id.toString()), chest);
+      const path = `chests/${chest.id}`;
+      try {
+        await setDoc(doc(db, 'chests', chest.id.toString()), chest);
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, path);
+      }
     }
   }
 };

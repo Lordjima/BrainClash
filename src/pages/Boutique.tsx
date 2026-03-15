@@ -28,13 +28,16 @@ export default function Boutique() {
       setSuccess(null);
       
       if (type === 'chest') {
-        await QuizService.buyChest(itemId);
+        const wonItemId = await QuizService.buyChest(itemId);
+        const wonItem = shopItems.find(i => i.id === wonItemId);
+        setSuccess(`Coffre ouvert ! Vous avez obtenu : ${wonItem?.name || wonItemId}`);
       } else {
         await QuizService.buyItem(itemId, price);
+        const item = shopItems.find(i => i.id === itemId);
+        setSuccess(`Achat réussi : ${item?.name || itemId}`);
       }
       
-      setSuccess(`Vous avez acheté ${itemId} !`);
-      setTimeout(() => setSuccess(null), 3000);
+      setTimeout(() => setSuccess(null), 5000);
     } catch (err: any) {
       setError(err.message || 'Erreur lors de l\'achat');
       setTimeout(() => setError(null), 3000);

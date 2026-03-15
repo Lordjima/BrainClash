@@ -17,6 +17,7 @@ export default function Navbar() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       const storedUser = localStorage.getItem('twitch_user');
+      
       if (storedUser) {
         try {
           const twitchUser = JSON.parse(storedUser);
@@ -49,10 +50,6 @@ export default function Navbar() {
       window.dispatchEvent(new Event('twitch_user_updated'));
       
       const checkAdmin = async () => {
-        if (auth.currentUser?.email === 'baptiste.louyot@gmail.com') {
-          setIsAdmin(true);
-          return;
-        }
         const adminStatus = await UserService.isAdmin(user.id);
         setIsAdmin(adminStatus);
       };
@@ -78,7 +75,7 @@ export default function Navbar() {
     window.open(url, 'oauth_popup', 'width=600,height=700');
   };
 
-  const isAdmin = twitchUser && isAdminState;
+  const isAdmin = isAdminState;
 
   return (
     <nav className="relative z-50 bg-transparent px-4 md:px-8 py-4 shrink-0">

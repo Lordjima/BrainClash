@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, Plus, Trash2, Save, Database, Zap, Trophy, Package, Sparkles, BookOpen } from 'lucide-react';
-import { collection, addDoc, getDocs, deleteDoc, doc, setDoc } from 'firebase/firestore';
-import { db, auth } from '../lib/firebase';
+import { collection, addDoc, getDocs, deleteDoc, doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { Theme, ShopItem, Badge, Chest, Question } from '../types';
 import { SeedService } from '../services/SeedService';
 import { UserService } from '../services/UserService';
@@ -29,10 +29,6 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const checkAdmin = async () => {
-      if (auth.currentUser?.email === 'baptiste.louyot@gmail.com') {
-        setIsAdmin(true);
-        return;
-      }
       if (twitchUser) {
         const adminStatus = await UserService.isAdmin(twitchUser.id);
         setIsAdmin(adminStatus);
@@ -42,10 +38,11 @@ export default function AdminDashboard() {
   }, [twitchUser]);
 
   const handleInitializeAdmin = async () => {
-    if (!auth.currentUser || !twitchUser) return;
+    if (!auth.currentUser) return;
+    const path = `profiles/${auth.currentUser.uid}`;
     try {
       await setDoc(doc(db, 'profiles', auth.currentUser.uid), {
-        username: twitchUser.display_name,
+        username: twitchUser?.display_name || auth.currentUser.displayName || 'Admin',
         score: 0,
         games_played: 0,
         date: Date.now(),
@@ -61,12 +58,7 @@ export default function AdminDashboard() {
       alert('Profil Admin initialisé dans Firestore !');
       window.location.reload();
     } catch (err: any) {
-      console.error(err);
-      if (err.message?.includes('insufficient permissions')) {
-        alert('Erreur de permissions : Assurez-vous d\'être bien connecté.');
-      } else {
-        alert('Erreur lors de l\'initialisation du profil.');
-      }
+      handleFirestoreError(err, OperationType.WRITE, path);
     }
   };
 
@@ -76,7 +68,7 @@ export default function AdminDashboard() {
         <EmptyState
           icon={<Shield className="w-12 h-12 text-red-500" />}
           title="Accès Refusé"
-          description="Seul l'administrateur JimaG4ming peut accéder à cette page."
+          description="Seul l'administrateur peut accéder à cette page."
           actionText="RETOUR À L'ACCUEIL"
           actionLink="/"
         />
@@ -178,20 +170,24 @@ function ThemeManager() {
   const [newThemeName, setNewThemeName] = useState('');
 
   useEffect(() => {
-    fetchThemes();
+    const unsub = onSnapshot(collection(db, 'themes'), (snapshot) => {
+      setThemes(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Theme)));
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'themes');
+    });
+    return () => unsub();
   }, []);
-
-  const fetchThemes = async () => {
-    const snap = await getDocs(collection(db, 'themes'));
-    setThemes(snap.docs.map(d => ({ id: d.id, ...d.data() } as Theme)));
-  };
 
   const handleAddTheme = async () => {
     if (!newThemeName.trim()) return;
     const id = newThemeName.toLowerCase().replace(/\s+/g, '_');
-    await setDoc(doc(db, 'themes', id), { name: newThemeName, questions: [] });
-    setNewThemeName('');
-    fetchThemes();
+    const path = `themes/${id}`;
+    try {
+      await setDoc(doc(db, 'themes', id), { name: newThemeName, questions: [] });
+      setNewThemeName('');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, path);
+    }
   };
 
   return (
@@ -220,7 +216,7 @@ function ThemeManager() {
               <div className="font-bold">{theme.name}</div>
               <div className="text-xs text-zinc-500">{theme.questions?.length || 0} questions</div>
             </div>
-            <button onClick={async () => { await deleteDoc(doc(db, 'themes', theme.id.toString())); fetchThemes(); }} className="p-2 text-zinc-600 hover:text-red-500 transition-colors">
+            <button onClick={async () => { await deleteDoc(doc(db, 'themes', theme.id.toString())); }} className="p-2 text-zinc-600 hover:text-red-500 transition-colors">
               <Trash2 className="w-4 h-4" />
             </button>
           </div>
@@ -235,20 +231,24 @@ function ItemManager() {
   const [newItem, setNewItem] = useState<Partial<ShopItem>>({ type: 'spell', power: 1 });
 
   useEffect(() => {
-    fetchItems();
+    const unsub = onSnapshot(collection(db, 'shopItems'), (snapshot) => {
+      setItems(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ShopItem)));
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'shopItems');
+    });
+    return () => unsub();
   }, []);
-
-  const fetchItems = async () => {
-    const snap = await getDocs(collection(db, 'shopItems'));
-    setItems(snap.docs.map(d => ({ id: d.id, ...d.data() } as ShopItem)));
-  };
 
   const handleAddItem = async () => {
     if (!newItem.name || !newItem.price) return;
     const id = 'item_' + Date.now();
-    await setDoc(doc(db, 'shopItems', id), { ...newItem, id });
-    setNewItem({ type: 'spell', power: 1 });
-    fetchItems();
+    const path = `shopItems/${id}`;
+    try {
+      await setDoc(doc(db, 'shopItems', id), { ...newItem, id });
+      setNewItem({ type: 'spell', power: 1 });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, path);
+    }
   };
 
   return (
@@ -298,7 +298,7 @@ function ItemManager() {
                 <div className="text-xs text-zinc-500">{item.price} Coins • {item.type}</div>
               </div>
             </div>
-            <button onClick={async () => { await deleteDoc(doc(db, 'shopItems', item.id.toString())); fetchItems(); }} className="p-2 text-zinc-600 hover:text-red-500 transition-colors">
+            <button onClick={async () => { await deleteDoc(doc(db, 'shopItems', item.id.toString())); }} className="p-2 text-zinc-600 hover:text-red-500 transition-colors">
               <Trash2 className="w-4 h-4" />
             </button>
           </div>
@@ -313,20 +313,24 @@ function BadgeManager() {
   const [newBadge, setNewBadge] = useState<Partial<Badge>>({ level: 1, rarity: 10 });
 
   useEffect(() => {
-    fetchBadges();
+    const unsub = onSnapshot(collection(db, 'badges'), (snapshot) => {
+      setBadges(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Badge)));
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'badges');
+    });
+    return () => unsub();
   }, []);
-
-  const fetchBadges = async () => {
-    const snap = await getDocs(collection(db, 'badges'));
-    setBadges(snap.docs.map(d => ({ id: d.id, ...d.data() } as Badge)));
-  };
 
   const handleAddBadge = async () => {
     if (!newBadge.name) return;
     const id = 'badge_' + Date.now();
-    await setDoc(doc(db, 'badges', id), { ...newBadge, id, icon: 'Award' });
-    setNewBadge({ level: 1, rarity: 10 });
-    fetchBadges();
+    const path = `badges/${id}`;
+    try {
+      await setDoc(doc(db, 'badges', id), { ...newBadge, id, icon: 'Award' });
+      setNewBadge({ level: 1, rarity: 10 });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, path);
+    }
   };
 
   return (
@@ -359,7 +363,7 @@ function BadgeManager() {
               <div className="font-bold text-sm">{badge.name}</div>
               <div className="text-[10px] text-zinc-500 mt-1">{badge.description}</div>
               <button 
-                onClick={async () => { await deleteDoc(doc(db, 'badges', badge.id.toString())); fetchBadges(); }}
+                onClick={async () => { await deleteDoc(doc(db, 'badges', badge.id.toString())); }}
                 className="absolute top-2 right-2 p-1 text-zinc-800 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
               >
                 <Trash2 className="w-3 h-3" />
@@ -377,20 +381,24 @@ function ChestManager() {
   const [newChest, setNewChest] = useState<Partial<Chest>>({ rarity: 'common', possibleItems: [] });
 
   useEffect(() => {
-    fetchChests();
+    const unsub = onSnapshot(collection(db, 'chests'), (snapshot) => {
+      setChests(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Chest)));
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'chests');
+    });
+    return () => unsub();
   }, []);
-
-  const fetchChests = async () => {
-    const snap = await getDocs(collection(db, 'chests'));
-    setChests(snap.docs.map(d => ({ id: d.id, ...d.data() } as Chest)));
-  };
 
   const handleAddChest = async () => {
     if (!newChest.name || !newChest.price) return;
     const id = 'chest_' + Date.now();
-    await setDoc(doc(db, 'chests', id), { ...newChest, id, icon: 'Package' });
-    setNewChest({ rarity: 'common', possibleItems: [] });
-    fetchChests();
+    const path = `chests/${id}`;
+    try {
+      await setDoc(doc(db, 'chests', id), { ...newChest, id, icon: 'Package' });
+      setNewChest({ rarity: 'common', possibleItems: [] });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, path);
+    }
   };
 
   return (
@@ -441,7 +449,7 @@ function ChestManager() {
                 <div className="text-[10px] text-zinc-500 uppercase font-black">{chest.rarity} • {chest.price} Coins</div>
               </div>
               <button 
-                onClick={async () => { await deleteDoc(doc(db, 'chests', chest.id.toString())); fetchChests(); }}
+                onClick={async () => { await deleteDoc(doc(db, 'chests', chest.id.toString())); }}
                 className="p-2 text-zinc-800 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
               >
                 <Trash2 className="w-4 h-4" />

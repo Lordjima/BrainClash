@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { collection, onSnapshot, doc, query, where, getDocs } from 'firebase/firestore';
 import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import { db, auth } from './lib/firebase';
+import { db, auth, handleFirestoreError, OperationType } from './lib/firebase';
 import { GlobalLeaderboardEntry, Theme, ShopItem, Badge, Chest } from './types';
 import { InitializationService } from './services/InitializationService';
 
@@ -76,65 +76,49 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           setIsLoaded(true);
         }
       } else {
-        // Subscribe to profile
+        // Subscribe to profile by UID - this is the most reliable way
         if (unsubProfile) unsubProfile();
         
-        if (twitchUser) {
-          try {
-            const twitchUserObj = JSON.parse(twitchUser);
-            // Query profile by username
-            const q = query(collection(db, 'profiles'), where('username', '==', twitchUserObj.display_name));
-            unsubProfile = onSnapshot(q, (snapshot) => {
-              if (!snapshot.empty) {
-                setUserProfile(snapshot.docs[0].data() as GlobalLeaderboardEntry);
-              } else {
-                // Fallback if not found in Firestore
-                setUserProfile({
-                  username: twitchUserObj.display_name,
-                  score: 0,
-                  games_played: 0,
-                  date: Date.now(),
-                  coins: 0,
-                  brainCoins: 0,
-                  is_sub: false,
-                  badges: [],
-                  inventory: [],
-                  level: 1,
-                  xp: 0
-                } as any);
+        const profilePath = `profiles/${user.uid}`;
+        unsubProfile = onSnapshot(doc(db, 'profiles', user.uid), (docSnap) => {
+          console.log('DataContext: onSnapshot triggered for UID', user.uid, docSnap.data());
+          if (docSnap.exists()) {
+            setUserProfile(docSnap.data() as GlobalLeaderboardEntry);
+          } else {
+            // If no profile by UID, check if we have a Twitch user and try to find by username
+            // This handles legacy profiles or profiles created before UID-keying was enforced
+            if (twitchUser) {
+              try {
+                const twitchUserObj = JSON.parse(twitchUser);
+                const q = query(collection(db, 'profiles'), where('username', '==', twitchUserObj.display_name));
+                getDocs(q).then(snapshot => {
+                  if (!snapshot.empty) {
+                    setUserProfile(snapshot.docs[0].data() as GlobalLeaderboardEntry);
+                  } else {
+                    setUserProfile(null);
+                  }
+                }).catch(err => {
+                  handleFirestoreError(err, OperationType.GET, 'profiles (query by username)');
+                });
+              } catch (e) {
+                console.error('Error parsing twitch_user:', e);
               }
-              if (!isInitialAuthCheckDone) {
-                isInitialAuthCheckDone = true;
-                setIsLoaded(true);
-              }
-            });
-          } catch (e) {
-            console.error('Error parsing twitch_user:', e);
-            isInitialAuthCheckDone = true;
-            setIsLoaded(true);
-          }
-        } else {
-          // Fallback to UID if no Twitch user
-          unsubProfile = onSnapshot(doc(db, 'profiles', user.uid), (doc) => {
-            console.log('DataContext: onSnapshot triggered for UID', user.uid, doc.data());
-            if (doc.exists()) {
-              setUserProfile(doc.data() as GlobalLeaderboardEntry);
             } else {
               setUserProfile(null);
             }
-            
-            if (!isInitialAuthCheckDone) {
-              isInitialAuthCheckDone = true;
-              setIsLoaded(true);
-            }
-          }, (err) => {
-            console.error('Profile snapshot error:', err);
-            if (!isInitialAuthCheckDone) {
-              isInitialAuthCheckDone = true;
-              setIsLoaded(true);
-            }
-          });
-        }
+          }
+          
+          if (!isInitialAuthCheckDone) {
+            isInitialAuthCheckDone = true;
+            setIsLoaded(true);
+          }
+        }, (err) => {
+          handleFirestoreError(err, OperationType.GET, profilePath);
+          if (!isInitialAuthCheckDone) {
+            isInitialAuthCheckDone = true;
+            setIsLoaded(true);
+          }
+        });
       }
     });
 
@@ -156,10 +140,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       // Sort by score descending
       setLeaderboard(uniqueProfiles.sort((a, b) => b.score - a.score));
     }, (err) => {
-      console.error('Leaderboard error:', err);
-      if (err.message?.includes('insufficient permissions')) {
-        setError('Erreur de permissions sur le classement.');
-      }
+      handleFirestoreError(err, OperationType.LIST, 'profiles');
     });
 
     const unsubThemes = onSnapshot(collection(db, 'themes'), (snapshot) => {
@@ -169,36 +150,28 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       });
       setThemes(data);
     }, (err) => {
-      console.error('Themes error:', err);
-      if (err.message?.includes('insufficient permissions')) {
-        setError('Erreur de permissions sur les thèmes.');
-      } else {
-        setError(err.message);
-      }
+      handleFirestoreError(err, OperationType.LIST, 'themes');
     });
 
     const unsubShop = onSnapshot(collection(db, 'shopItems'), (snapshot) => {
       const data = snapshot.docs.map(doc => doc.data() as ShopItem);
       setShopItems(data);
     }, (err) => {
-      console.error('Shop error:', err);
-      if (err.message?.includes('insufficient permissions')) {
-        setError('Erreur de permissions sur la boutique.');
-      }
+      handleFirestoreError(err, OperationType.LIST, 'shopItems');
     });
 
     const unsubBadges = onSnapshot(collection(db, 'badges'), (snapshot) => {
       const data = snapshot.docs.map(doc => doc.data() as Badge);
       setBadges(data);
     }, (err) => {
-      console.error('Badges error:', err);
+      handleFirestoreError(err, OperationType.LIST, 'badges');
     });
 
     const unsubChests = onSnapshot(collection(db, 'chests'), (snapshot) => {
       const data = snapshot.docs.map(doc => doc.data() as Chest);
       setChests(data);
     }, (err) => {
-      console.error('Chests error:', err);
+      handleFirestoreError(err, OperationType.LIST, 'chests');
     });
 
     return () => {

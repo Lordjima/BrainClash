@@ -1,10 +1,11 @@
 import { doc, getDoc } from 'firebase/firestore';
-import { db, auth } from '../lib/firebase';
+import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 
 export const UserService = {
   async isAdmin(twitchId: string): Promise<boolean> {
+    const uid = auth.currentUser?.uid;
+    const path = `profiles/${uid || twitchId}`;
     try {
-      const uid = auth.currentUser?.uid;
       let userDoc = await getDoc(doc(db, 'profiles', uid || ''));
       
       if (!userDoc.exists()) {
@@ -16,7 +17,7 @@ export const UserService = {
       }
       return false;
     } catch (err) {
-      console.error('Error checking admin status:', err);
+      handleFirestoreError(err, OperationType.GET, path);
       return false;
     }
   }

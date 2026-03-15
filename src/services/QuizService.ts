@@ -287,7 +287,10 @@ export class QuizService {
 
   static async updatePlayerProfile(roomCode: string): Promise<void> {
     const user = auth.currentUser;
-    if (!user) throw new Error('Authentication required');
+    if (!user) {
+      console.log('UpdateProfile: No user');
+      return;
+    }
 
     const roomRef = doc(db, this.ROOMS_COLLECTION, roomCode);
     let roomSnap;
@@ -296,12 +299,23 @@ export class QuizService {
     } catch (error) {
       handleFirestoreError(error, OperationType.GET, this.ROOMS_COLLECTION + '/' + roomCode);
     }
-    if (!roomSnap?.exists()) return;
+    if (!roomSnap?.exists()) {
+      console.log('UpdateProfile: Room not found');
+      return;
+    }
     const room = roomSnap.data() as RoomState;
-    if (room.status !== 'finished') return;
+    if (room.status !== 'finished') {
+      console.log('UpdateProfile: Room not finished, status:', room.status);
+      return;
+    }
 
     const player = room.players[user.uid];
-    if (!player) return;
+    if (!player) {
+      console.log('UpdateProfile: Player not in room');
+      return;
+    }
+
+    console.log('UpdateProfile: Processing rewards for', player.username, 'Score:', player.score);
 
     // Update global profile for the player
     const profileRef = doc(db, this.PROFILES_COLLECTION, user.uid);
@@ -314,29 +328,43 @@ export class QuizService {
 
     if (profileSnap?.exists()) {
       const profile = profileSnap.data() as GlobalLeaderboardEntry;
-      if (profile.processedGames?.includes(roomCode)) return; // Already processed
+      if (profile.processedGames?.includes(roomCode)) {
+        console.log('UpdateProfile: Game already processed');
+        return;
+      }
+
+      const coinsToAdd = Math.floor(player.score / 5); // Increased reward: 1 coin per 5 points
+      const brainCoinsToAdd = Math.floor(player.score / 50); // Increased reward: 1 brainCoin per 50 points
+
+      console.log(`UpdateProfile: Adding ${coinsToAdd} coins and ${brainCoinsToAdd} brainCoins`);
 
       try {
         await updateDoc(profileRef, {
           score: increment(player.score),
           games_played: increment(1),
-          coins: increment(Math.floor(player.score / 10)), // Example: 1 coin per 10 points
-          brainCoins: increment(Math.floor(player.score / 100)), // Example: 1 brainCoin per 100 points
+          coins: increment(coinsToAdd),
+          brainCoins: increment(brainCoinsToAdd),
           processedGames: arrayUnion(roomCode)
         });
+        console.log('UpdateProfile: Profile updated successfully');
       } catch (error) {
         handleFirestoreError(error, OperationType.UPDATE, this.PROFILES_COLLECTION + '/' + user.uid);
       }
     } else {
       // Create profile if it doesn't exist
+      const coinsToAdd = Math.floor(player.score / 5);
+      const brainCoinsToAdd = Math.floor(player.score / 50);
+      
+      console.log(`UpdateProfile: Creating profile with ${coinsToAdd} coins`);
+
       try {
         await setDoc(profileRef, {
           username: player.username,
           score: player.score,
           games_played: 1,
           date: Date.now(),
-          coins: Math.floor(player.score / 10),
-          brainCoins: Math.floor(player.score / 100),
+          coins: coinsToAdd,
+          brainCoins: brainCoinsToAdd,
           is_sub: false,
           badges: [],
           inventory: [],
@@ -344,6 +372,7 @@ export class QuizService {
           xp: player.score,
           processedGames: [roomCode]
         });
+        console.log('UpdateProfile: Profile created successfully');
       } catch (error) {
         handleFirestoreError(error, OperationType.WRITE, this.PROFILES_COLLECTION + '/' + user.uid);
       }
@@ -464,8 +493,9 @@ export class QuizService {
 
     const profile = profileSnap.data() as GlobalLeaderboardEntry;
 
-    if (profile.coins < price) {
-      throw new Error('Pas assez de coins');
+    // Use brainCoins for items (Sparkles icon in UI)
+    if ((profile.brainCoins || 0) < price) {
+      throw new Error('Pas assez de BrainCoins');
     }
 
     if ((profile.inventory || []).length >= 15) {
@@ -473,11 +503,12 @@ export class QuizService {
     }
 
     await updateDoc(profileRef, {
-      coins: increment(-price),
+      brainCoins: increment(-price),
       inventory: arrayUnion(itemId)
     });
   }
-  static async buyChest(chestId: string): Promise<void> {
+
+  static async buyChest(chestId: string): Promise<string> {
     const user = auth.currentUser;
     if (!user) throw new Error('Authentication required');
 
@@ -492,13 +523,28 @@ export class QuizService {
     const profile = profileSnap.data() as GlobalLeaderboardEntry;
     const chest = chestSnap.data() as Chest;
 
-    if (profile.coins < chest.price) {
+    if ((profile.coins || 0) < chest.price) {
       throw new Error('Pas assez de coins');
     }
 
+    if ((profile.inventory || []).length >= 15) {
+      throw new Error('Inventaire plein (15 emplacements max)');
+    }
+
+    // Pick random item from chest
+    if (!chest.possibleItems || chest.possibleItems.length === 0) {
+      throw new Error('Ce coffre est vide !');
+    }
+
+    const randomIndex = Math.floor(Math.random() * chest.possibleItems.length);
+    const wonItemId = chest.possibleItems[randomIndex];
+
     await updateDoc(profileRef, {
-      coins: increment(-chest.price)
+      coins: increment(-chest.price),
+      inventory: arrayUnion(wonItemId)
     });
+
+    return wonItemId;
   }
 
   /**

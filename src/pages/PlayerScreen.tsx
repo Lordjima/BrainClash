@@ -27,6 +27,7 @@ export default function PlayerScreen() {
   const [profile, setProfile] = useState<GlobalLeaderboardEntry | null>(null);
   const [activeMalus, setActiveMalus] = useState<{ type: string, source: string } | null>(null);
   const [showWinner, setShowWinner] = useState(false);
+  const [showResults, setShowResults] = useState(false);
 
   const userId = auth.currentUser?.uid;
 
@@ -40,6 +41,11 @@ export default function PlayerScreen() {
         
         if (updatedRoom.status === 'finished') {
           setShowWinner(true);
+        } else if (updatedRoom.status === 'lobby') {
+          // Reset local state when room goes back to lobby
+          setShowWinner(false);
+          setShowResults(false);
+          setSelectedAnswer(null);
         } else if (updatedRoom.status === 'closed') {
           navigate('/');
         } else if (updatedRoom.status === 'active' && !updatedRoom.showAnswer) {
@@ -108,6 +114,16 @@ export default function PlayerScreen() {
     }
   }, [room?.activeEffects, userId]);
 
+  useEffect(() => {
+    if (showWinner) {
+      const timer = setTimeout(() => {
+        setShowWinner(false);
+        setShowResults(true);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [showWinner]);
+
   if (!room) {
     return <div className="h-full bg-transparent text-white flex items-center justify-center">Connexion...</div>;
   }
@@ -115,12 +131,17 @@ export default function PlayerScreen() {
   const me = userId ? room.players[userId] : null;
 
   if (showWinner && room) {
-    return <WinnerAnnouncement room={room} onFinished={() => {
-      if (id) {
-        QuizService.resetRoom(id);
-        setShowWinner(false);
-      }
-    }} />;
+    return <WinnerAnnouncement room={room} onFinished={() => {}} />;
+  }
+
+  if (showResults && room && me) {
+    return (
+      <GameFinished 
+        room={room} 
+        me={me} 
+        onNavigateHome={() => navigate('/')} 
+      />
+    );
   }
 
   if (room.status === 'lobby') {

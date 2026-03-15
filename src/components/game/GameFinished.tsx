@@ -16,7 +16,11 @@ export default function GameFinished({ room, me, onNavigateHome }: GameFinishedP
     <div className="h-full bg-transparent text-white flex flex-col items-center p-6 overflow-hidden">
       <Trophy className="w-16 h-16 text-yellow-500 mb-4 mt-8" />
       <h2 className="text-3xl font-bold mb-2">Quiz Terminé !</h2>
-      <p className="text-xl text-fuchsia-400 font-mono mb-6">{me.score} points</p>
+      <p className="text-xl text-fuchsia-400 font-mono mb-2">{me.score} points</p>
+      <div className="flex items-center gap-2 mb-6 text-amber-500 font-black italic">
+        <div className="w-5 h-5 bg-amber-500 rounded-full flex items-center justify-center text-[10px] text-zinc-950">C</div>
+        +{Math.floor(me.score / 5)} Coins gagnés !
+      </div>
       
       <div className="bg-zinc-900 px-6 py-3 rounded-2xl border border-zinc-800 mb-8 flex items-center gap-4">
         <div className="text-zinc-400 uppercase tracking-widest text-xs font-bold">Votre position</div>

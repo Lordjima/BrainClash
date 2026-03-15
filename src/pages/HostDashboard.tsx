@@ -60,6 +60,12 @@ export default function HostDashboard() {
     }
   }, [room, handleReveal]);
 
+  useEffect(() => {
+    if (room?.status === 'finished' && id) {
+      QuizService.updatePlayerProfile(id);
+    }
+  }, [room?.status, id]);
+
   if (!room) {
     return <div className="h-full bg-transparent text-white flex items-center justify-center">Chargement...</div>;
   }
