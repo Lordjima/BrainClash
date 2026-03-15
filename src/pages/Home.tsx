@@ -33,7 +33,7 @@ import { Button } from '../components/ui/Button';
 
 export default function Home() {
   const navigate = useNavigate();
-  const { twitchUser } = useAuth();
+  const { twitchUser, isAuthReady, user: firebaseUser } = useAuth();
   const { leaderboard, isLoaded, items: shopItems, badges: allBadges, chests } = useCatalog();
   
   const [roomCode, setRoomCode] = useState('');
@@ -94,59 +94,70 @@ export default function Home() {
 
   const handleJoinRoom = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!twitchUser) {
-      alert('Veuillez vous connecter avec Twitch pour jouer.');
+    
+    if (!isAuthReady) return;
+
+    if (!firebaseUser) {
+      setError("Le système d'authentification n'est pas prêt. Veuillez patienter...");
+      return;
+    }
+
+    const code = roomCode.trim().toUpperCase();
+    if (!code || code.length < 4) {
+      setError("Veuillez entrer un code de salon valide (4 caractères).");
       return;
     }
     
-    const code = roomCode.trim().toUpperCase();
-    if (code) {
-      try {
-        // Special case for JIMA demo room
-        if (code === 'JIMA') {
-          const { doc, getDoc } = await import('firebase/firestore');
-          const { db } = await import('../lib/firebase');
-          const roomSnap = await getDoc(doc(db, 'rooms', 'JIMA'));
-          
-          if (!roomSnap.exists()) {
-            // Create a default demo room if it doesn't exist
-            await QuizService.createRoomWithCode('JIMA', {
-              name: "Salon de Jima",
-              description: "Bienvenue dans l'arène officielle de JimaG4ming !",
-              themeIds: ["general"],
-              timeLimit: 15,
-              questions: [
-                {
-                  index: 0,
-                  questionId: 'q1',
-                  text: "Quel est le jeu préféré de Jima ?",
-                  options: ["League of Legends", "Valorant", "Minecraft", "Fortnite"],
-                  correctOptionIndex: 1,
-                  timeLimit: 15,
-                  theme: "general"
-                },
-                {
-                  index: 1,
-                  questionId: 'q2',
-                  text: "Combien de BrainCoins coûte un badge Légendaire ?",
-                  options: ["10", "50", "100", "500"],
-                  correctOptionIndex: 2,
-                  timeLimit: 15,
-                  theme: "general"
-                }
-              ]
-            });
-          }
-        }
+    setIsLoading(true);
+    setError('');
 
-        await QuizService.joinRoom(code, twitchUser.display_name, twitchUser.profile_image_url);
-        navigate(`/room/${code}`);
-      } catch (err: any) {
-        console.error('Error joining room:', err);
-        setError(err.message === 'Room not found' 
-          ? "Ce salon n'existe pas. Essayez 'JIMA' pour le salon démo !" 
-          : err.message || 'Erreur lors de la connexion au salon.');
+    try {
+      // Special case for JIMA demo room
+      if (code === 'JIMA') {
+        const { doc, getDoc } = await import('firebase/firestore');
+        const { db } = await import('../lib/firebase');
+        const roomSnap = await getDoc(doc(db, 'rooms', 'JIMA'));
+        
+        if (!roomSnap.exists()) {
+          // Create a default demo room if it doesn't exist
+          await QuizService.createRoomWithCode('JIMA', {
+            name: "Salon de Jima",
+            description: "Bienvenue dans l'arène officielle de JimaG4ming !",
+            themeIds: ["general"],
+            timeLimit: 15,
+            questions: [
+              {
+                index: 0,
+                questionId: 'q1',
+                text: "Quel est le jeu préféré de Jima ?",
+                options: ["League of Legends", "Valorant", "Minecraft", "Fortnite"],
+                correctOptionIndex: 1,
+                timeLimit: 15,
+                theme: "general"
+              },
+              {
+                index: 1,
+                questionId: 'q2',
+                text: "Combien de BrainCoins coûte un badge Légendaire ?",
+                options: ["10", "50", "100", "500"],
+                correctOptionIndex: 2,
+                timeLimit: 15,
+                theme: "general"
+              }
+            ]
+          });
+        }
       }
+
+      const username = twitchUser?.display_name || `Joueur_${firebaseUser.uid.substring(0, 5)}`;
+      const avatarUrl = twitchUser?.profile_image_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.uid}`;
+
+      await QuizService.joinRoom(code, username, avatarUrl);
+      navigate(`/room/${code}`);
+    } catch (err: any) {
+      console.error('Error joining room:', err);
+      setIsLoading(false);
+      setError(err.message || 'Erreur lors de la connexion au salon.');
     }
   };
 
@@ -258,17 +269,19 @@ export default function Home() {
                   ))}
                 </motion.div>
 
-                <div className="flex flex-col items-center gap-6">
-                  <Button
-                    type="submit"
-                    variant="gradient"
-                    size="lg"
-                    icon={<Gamepad2 className="w-6 h-6" />}
-                    showArrow
-                    className="max-w-xs"
-                  >
-                    Rejoindre l'Arène
-                  </Button>
+                  <div className="flex flex-col items-center gap-6">
+                    <Button
+                      type="submit"
+                      variant="gradient"
+                      size="lg"
+                      icon={<Gamepad2 className="w-6 h-6" />}
+                      showArrow
+                      className="max-w-xs"
+                      disabled={!isAuthReady || roomCode.length < 4}
+                      loading={isLoading && !error}
+                    >
+                      {!isAuthReady ? 'Initialisation...' : "Rejoindre l'Arène"}
+                    </Button>
 
                   <Button
                     type="button"

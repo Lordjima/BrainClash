@@ -26,7 +26,7 @@ export const RoomProvider = ({ roomId, children }: { roomId: string; children: R
     if (!roomId) return;
 
     const roomRef = doc(db, 'rooms', roomId);
-    const participantsRef = collection(db, `rooms/${roomId}/participants`);
+    const playersRef = collection(db, `rooms/${roomId}/players`);
     const questionsRef = collection(db, `rooms/${roomId}/questions`);
     const effectsRef = collection(db, `rooms/${roomId}/effects`);
 
@@ -36,7 +36,7 @@ export const RoomProvider = ({ roomId, children }: { roomId: string; children: R
       }
     });
 
-    const unsubParticipants = onSnapshot(participantsRef, (snapshot) => {
+    const unsubPlayers = onSnapshot(playersRef, (snapshot) => {
       const players: Record<string, RoomParticipant> = {};
       snapshot.docs.forEach(doc => {
         players[doc.id] = doc.data() as RoomParticipant;
@@ -65,7 +65,7 @@ export const RoomProvider = ({ roomId, children }: { roomId: string; children: R
 
     return () => {
       unsubRoom();
-      unsubParticipants();
+      unsubPlayers();
       unsubQuestions();
       unsubEffects();
     };

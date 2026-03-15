@@ -8,6 +8,7 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   className?: string;
   icon?: React.ReactNode;
   showArrow?: boolean;
+  loading?: boolean;
   as?: any;
   to?: string;
   target?: string;
@@ -17,25 +18,44 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   key?: any;
 }
 
-export function Button({ variant = 'primary', size = 'md', className = '', children, icon, showArrow = false, as: Component = 'button', ...props }: ButtonProps) {
+export function Button({ 
+  variant = 'primary', 
+  size = 'md', 
+  className = '', 
+  children, 
+  icon, 
+  showArrow = false, 
+  loading = false,
+  as: Component = 'button', 
+  ...props 
+}: ButtonProps) {
   const baseClasses = "relative group overflow-hidden transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50 disabled:pointer-events-none";
   
+  const isDisabled = props.disabled || loading;
+
   if (variant === 'gradient') {
     return (
       <Component 
         className={`${baseClasses} w-full rounded-2xl p-[2px] shadow-[0_0_30px_rgba(217,70,239,0.15)] hover:shadow-[0_0_50px_rgba(217,70,239,0.3)] ${className}`}
+        disabled={isDisabled}
         {...props as any}
       >
         <div className="absolute inset-0 bg-gradient-to-r from-fuchsia-600 via-purple-600 to-pink-600 animate-gradient-x"></div>
         <div className={`relative bg-zinc-950 group-hover:bg-transparent transition-all w-full rounded-[0.9rem] flex items-center justify-center gap-3 ${size === 'lg' ? 'py-4' : size === 'sm' ? 'py-2' : 'py-3'}`}>
-          {icon && <span className="text-fuchsia-500 group-hover:text-white transition-colors">{icon}</span>}
-          <span className={`font-black tracking-tighter group-hover:text-white transition-colors uppercase italic ${size === 'lg' ? 'text-lg' : size === 'sm' ? 'text-xs' : 'text-sm'}`}>
-            {children}
-          </span>
-          {showArrow && (
-            <div className="absolute right-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all">
-              <ChevronRight className="w-5 h-5 text-white" />
-            </div>
+          {loading ? (
+            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          ) : (
+            <>
+              {icon && <span className="text-fuchsia-500 group-hover:text-white transition-colors">{icon}</span>}
+              <span className={`font-black tracking-tighter group-hover:text-white transition-colors uppercase italic ${size === 'lg' ? 'text-lg' : size === 'sm' ? 'text-xs' : 'text-sm'}`}>
+                {children}
+              </span>
+              {showArrow && (
+                <div className="absolute right-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all">
+                  <ChevronRight className="w-5 h-5 text-white" />
+                </div>
+              )}
+            </>
           )}
         </div>
       </Component>
@@ -58,11 +78,18 @@ export function Button({ variant = 'primary', size = 'md', className = '', child
   return (
     <Component 
       className={`${baseClasses} font-black uppercase tracking-widest ${variants[variant]} ${sizes[size]} ${className}`}
+      disabled={isDisabled}
       {...props as any}
     >
-      {icon && <span>{icon}</span>}
-      {children}
-      {showArrow && <ChevronRight className="w-5 h-5" />}
+      {loading ? (
+        <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+      ) : (
+        <>
+          {icon && <span>{icon}</span>}
+          {children}
+          {showArrow && <ChevronRight className="w-5 h-5" />}
+        </>
+      )}
     </Component>
   );
 }

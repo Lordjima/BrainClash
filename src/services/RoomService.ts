@@ -95,29 +95,50 @@ export const RoomService = {
    */
   async joinRoom(roomCode: string, profile: { username: string, avatarUrl: string }): Promise<void> {
     const user = auth.currentUser;
-    if (!user) throw new Error('Authentication required');
+    if (!user) {
+      console.error('JoinRoom failed: No authenticated user');
+      throw new Error('Vous devez être connecté pour rejoindre un salon.');
+    }
 
-    const participantRef = doc(db, `rooms/${roomCode}/participants`, user.uid);
+    const normalizedCode = roomCode.trim().toUpperCase();
+    const roomRef = doc(db, 'rooms', normalizedCode);
     
-    const participant: RoomParticipant = {
-      id: user.uid,
-      uid: user.uid,
-      username: profile.username,
-      avatar: profile.avatarUrl,
-      avatarUrl: profile.avatarUrl,
-      color: '#' + Math.floor(Math.random()*16777215).toString(16),
-      joinedAt: Date.now(),
-      score: 0,
-      streak: 0,
-      hasAnswered: false,
-      isCorrect: null,
-      isProtected: false
-    };
-
     try {
-      await setDoc(participantRef, participant);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `rooms/${roomCode}/participants/${user.uid}`);
+      const roomSnap = await getDoc(roomRef);
+      if (!roomSnap.exists()) {
+        throw new Error('Ce salon n\'existe pas.');
+      }
+
+      const roomData = roomSnap.data() as Room;
+      if (roomData.status === 'closed') {
+        throw new Error('Ce salon est fermé.');
+      }
+
+      const playerRef = doc(db, `rooms/${normalizedCode}/players`, user.uid);
+      
+      const player: RoomParticipant = {
+        id: user.uid,
+        uid: user.uid,
+        username: profile.username,
+        avatar: profile.avatarUrl,
+        avatarUrl: profile.avatarUrl,
+        color: '#' + Math.floor(Math.random()*16777215).toString(16),
+        joinedAt: Date.now(),
+        score: 0,
+        streak: 0,
+        hasAnswered: false,
+        isCorrect: null,
+        isProtected: false
+      };
+
+      await setDoc(playerRef, player);
+      console.log(`User ${user.uid} joined room ${normalizedCode}`);
+    } catch (error: any) {
+      console.error('Error in joinRoom:', error);
+      if (error.code === 'permission-denied') {
+        throw new Error('Erreur de permissions Firestore. Vérifiez les règles de sécurité.');
+      }
+      throw error;
     }
   },
 
@@ -150,9 +171,9 @@ export const RoomService = {
     }
 
     try {
-      // 1. Update participant
-      const participantRef = doc(db, `rooms/${roomCode}/participants`, user.uid);
-      await updateDoc(participantRef, {
+      // 1. Update player
+      const playerRef = doc(db, `rooms/${roomCode}/players`, user.uid);
+      await updateDoc(playerRef, {
         hasAnswered: true,
         isCorrect: isCorrect,
         score: increment(points),
@@ -193,12 +214,12 @@ export const RoomService = {
       return;
     }
 
-    // Reset participants for next question
-    const participantsRef = collection(db, `rooms/${roomCode}/participants`);
-    const participantsSnap = await getDocs(participantsRef);
+    // Reset players for next question
+    const playersRef = collection(db, `rooms/${roomCode}/players`);
+    const playersSnap = await getDocs(playersRef);
     const batch = writeBatch(db);
     
-    participantsSnap.docs.forEach(d => {
+    playersSnap.docs.forEach(d => {
       batch.update(d.ref, { hasAnswered: false, isCorrect: null });
     });
 

@@ -295,9 +295,9 @@
       "schema": { "$ref": "Room" },
       "description": "Quiz room"
     },
-    "rooms/{roomId}/participants/{uid}": {
+    "rooms/{roomId}/players/{uid}": {
       "schema": { "$ref": "RoomParticipant" },
-      "description": "Room participants"
+      "description": "Room players"
     },
     "rooms/{roomId}/questions/{index}": {
       "schema": { "$ref": "RoomQuestion" },

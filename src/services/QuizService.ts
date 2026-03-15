@@ -88,23 +88,23 @@ export class QuizService {
     const user = auth.currentUser;
     if (!user) return;
 
-    const participantRef = doc(db, `rooms/${roomCode}/participants`, user.uid);
-    const participantSnap = await getDoc(participantRef);
-    if (!participantSnap.exists()) return;
-    const participant = participantSnap.data() as RoomParticipant;
+    const playerRef = doc(db, `rooms/${roomCode}/players`, user.uid);
+    const playerSnap = await getDoc(playerRef);
+    if (!playerSnap.exists()) return;
+    const player = playerSnap.data() as RoomParticipant;
 
     // 1. Update Stats
     const statsRef = doc(db, `users/${user.uid}/stats`, 'global');
     await updateDoc(statsRef, {
-      scoreTotal: increment(participant.score),
+      scoreTotal: increment(player.score),
       gamesPlayed: increment(1),
-      xp: increment(participant.score),
+      xp: increment(player.score),
       updatedAt: Date.now()
     });
 
     // 2. Update Wallet
-    const coinsToAdd = participant.score;
-    const brainCoinsToAdd = Math.floor(participant.score / 10);
+    const coinsToAdd = player.score;
+    const brainCoinsToAdd = Math.floor(player.score / 10);
     
     if (coinsToAdd > 0) {
       await WalletService.updateBalance(
@@ -130,7 +130,7 @@ export class QuizService {
     const gameResultRef = doc(db, `users/${user.uid}/gameResults`, roomCode);
     await setDoc(gameResultRef, {
       roomId: roomCode,
-      score: participant.score,
+      score: player.score,
       timestamp: Date.now()
     });
 

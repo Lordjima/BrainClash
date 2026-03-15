@@ -41,7 +41,7 @@ export default function AuthCallback() {
   }, []);
 
   return (
-    <div className="h-screen flex items-center justify-center bg-zinc-950 text-white">
+    <div className="h-[100dvh] flex items-center justify-center bg-zinc-950 text-white">
       <p className="font-black uppercase tracking-widest">Connexion en cours...</p>
     </div>
   );

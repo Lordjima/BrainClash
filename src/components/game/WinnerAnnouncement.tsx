@@ -22,7 +22,7 @@ export default function WinnerAnnouncement({ room, onFinished }: WinnerAnnouncem
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="h-screen w-screen bg-zinc-950 text-white flex flex-col items-center justify-center p-8 text-center"
+      className="h-[100dvh] w-screen bg-zinc-950 text-white flex flex-col items-center justify-center p-8 text-center"
     >
       <motion.div
         initial={{ scale: 0.5, rotate: -10 }}

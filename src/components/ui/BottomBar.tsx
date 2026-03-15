@@ -12,7 +12,7 @@ export function BottomBar() {
 
   return (
     <>
-      <div className="h-20 bg-transparent flex items-center justify-between px-6 shrink-0">
+      <div className="fixed bottom-0 left-0 right-0 h-20 bg-zinc-950/80 backdrop-blur-xl flex items-center justify-between px-6 z-50 border-t border-white/5 md:static md:bg-transparent md:backdrop-blur-none md:border-t-0 md:z-auto">
         <Button variant="ghost" onClick={() => setIsMenuOpen(true)} className="p-3 rounded-full hover:bg-zinc-800/50">
           <Menu className="w-6 h-6" />
         </Button>

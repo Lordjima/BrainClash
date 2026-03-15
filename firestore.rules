@@ -1,8 +1,90 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         request.auth.token.email == "baptiste.louyot@gmail.com");
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    // User Profiles and Private Data
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) || isAdmin();
+      
+      // Subcollections for user data (stats, wallet, inventory, connections, etc.)
+      match /{allPaths=**} {
+        allow read: if isAuthenticated();
+        allow write: if isOwner(userId) || isAdmin();
+      }
+    }
+
+    // Rooms
+    match /rooms/{roomId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      
+      // Players in the room
+      match /players/{playerId} {
+        allow read: if isAuthenticated();
+        allow write: if isOwner(playerId) || isAdmin();
+      }
+      
+      // Questions, Answers, Effects, etc.
+      match /{allPaths=**} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated(); 
+      }
+    }
+
+    // Catalog and Public Data
+    match /catalogItems/{itemId} {
+      allow read: if true;
+    }
+    
+    match /catalogChests/{chestId} {
+      allow read: if true;
+      match /{allPaths=**} {
+        allow read: if true;
+      }
+    }
+    
+    match /catalogBadges/{badgeId} {
+      allow read: if true;
+    }
+
+    match /themes/{themeId} {
+      allow read: if true;
+    }
+    
+    match /questions/{questionId} {
+      allow read: if true;
+    }
+    
+    match /questionBank/{questionId} {
+      allow read: if true;
+    }
+    
+    // Global Leaderboard
+    match /leaderboard/{userId} {
+      allow read: if true;
+      allow write: if isOwner(userId) || isAdmin();
     }
   }
 }

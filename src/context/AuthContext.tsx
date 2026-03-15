@@ -51,16 +51,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Check admin status
         const adminStatus = await UserService.isAdmin(firebaseUser.uid);
         setIsAdmin(adminStatus);
-      } else if (twitchUser) {
-        // If we have twitch but no firebase, sign in anonymously
+        setIsAuthReady(true);
+      } else {
+        // If no firebase user, sign in anonymously
         try {
           await signInAnonymously(auth);
+          // onAuthStateChanged will trigger again with the new user
         } catch (err) {
           console.error('Anonymous auth error:', err);
+          setIsAuthReady(true); // Still ready even if error, to unblock UI
         }
       }
-
-      setIsAuthReady(true);
     });
 
     return unsub;

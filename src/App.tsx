@@ -66,9 +66,9 @@ export default function App() {
                   
                   {/* All other routes */}
                   <Route path="*" element={
-                    <div className="h-screen flex flex-col overflow-hidden">
+                    <div className="h-[100dvh] flex flex-col overflow-hidden">
                       <Navbar />
-                      <main className="flex-1 overflow-hidden flex flex-col relative">
+                      <main className="flex-1 overflow-hidden flex flex-col relative pb-20 md:pb-0">
                         <Routes>
                           <Route path="/" element={<Home />} />
                           <Route path="/create" element={<CreateQuiz />} />
