@@ -90,6 +90,39 @@ export const RoomService = {
     }
   },
 
+  async startQuiz(roomCode: string): Promise<void> {
+    const roomRef = doc(db, 'rooms', roomCode);
+    const playersRef = collection(db, `rooms/${roomCode}/players`);
+    
+    try {
+      const playersSnap = await getDocs(playersRef);
+      const batch = writeBatch(db);
+
+      // Reset players
+      playersSnap.docs.forEach(pDoc => {
+        batch.update(pDoc.ref, { 
+          hasAnswered: false, 
+          isCorrect: null, 
+          lastAnswerIndex: -1,
+          lastAnsweredQuestionIndex: -1 
+        });
+      });
+
+      // Init room
+      batch.update(roomRef, {
+        status: 'active',
+        currentQuestionIndex: 0,
+        questionStartTime: Date.now(),
+        showAnswer: false,
+        updatedAt: Date.now()
+      });
+
+      await batch.commit();
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `rooms/${roomCode}`);
+    }
+  },
+
   /**
    * Join a room
    */
@@ -159,7 +192,7 @@ export const RoomService = {
     const playerSnap = await getDoc(playerRef);
     if (!playerSnap.exists()) return;
     const player = playerSnap.data() as RoomParticipant;
-    if (player.hasAnswered) return;
+    if (player.hasAnswered && player.lastAnsweredQuestionIndex === questionIndex) return;
 
     const questionRef = doc(db, `rooms/${roomCode}/questions`, questionIndex.toString());
     const questionSnap = await getDoc(questionRef);
@@ -185,7 +218,8 @@ export const RoomService = {
         score: increment(points),
         streak: isCorrect ? increment(1) : 0,
         answerTime: Date.now(),
-        lastAnswerIndex: answerIndex
+        lastAnswerIndex: answerIndex,
+        lastAnsweredQuestionIndex: questionIndex
       });
 
       // 2. Record answer
@@ -227,7 +261,7 @@ export const RoomService = {
     const batch = writeBatch(db);
     
     playersSnap.docs.forEach(d => {
-      batch.update(d.ref, { hasAnswered: false, isCorrect: null, lastAnswerIndex: null });
+      batch.update(d.ref, { hasAnswered: false, isCorrect: null, lastAnswerIndex: null, lastAnsweredQuestionIndex: null });
     });
 
     batch.update(roomRef, {

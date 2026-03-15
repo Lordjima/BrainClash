@@ -10,7 +10,8 @@ export const RoomProvider = ({ roomId, children }: { roomId: string; children: R
   const [players, setPlayers] = useState<Record<string, RoomParticipant>>({});
   const [questions, setQuestions] = useState<RoomQuestion[]>([]);
   const [activeEffects, setActiveEffects] = useState<RoomEffectDoc[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loaded, setLoaded] = useState({ room: false, players: false, questions: false, effects: false });
+  const loading = !loaded.room || !loaded.players || !loaded.questions || !loaded.effects;
 
   const room = React.useMemo(() => {
     if (!roomDoc) return null;
@@ -34,6 +35,7 @@ export const RoomProvider = ({ roomId, children }: { roomId: string; children: R
       if (doc.exists()) {
         setRoomDoc(doc.data() as Room);
       }
+      setLoaded(prev => ({ ...prev, room: true }));
     });
 
     const unsubPlayers = onSnapshot(playersRef, (snapshot) => {
@@ -42,6 +44,7 @@ export const RoomProvider = ({ roomId, children }: { roomId: string; children: R
         players[doc.id] = doc.data() as RoomParticipant;
       });
       setPlayers(players);
+      setLoaded(prev => ({ ...prev, players: true }));
     });
 
     const unsubQuestions = onSnapshot(questionsRef, (snapshot) => {
@@ -51,6 +54,7 @@ export const RoomProvider = ({ roomId, children }: { roomId: string; children: R
       });
       questions.sort((a, b) => a.index - b.index);
       setQuestions(questions);
+      setLoaded(prev => ({ ...prev, questions: true }));
     });
 
     const unsubEffects = onSnapshot(effectsRef, (snapshot) => {
@@ -59,9 +63,8 @@ export const RoomProvider = ({ roomId, children }: { roomId: string; children: R
         activeEffects.push({ id: doc.id, ...doc.data() } as RoomEffectDoc);
       });
       setActiveEffects(activeEffects);
+      setLoaded(prev => ({ ...prev, effects: true }));
     });
-
-    setLoading(false);
 
     return () => {
       unsubRoom();

@@ -117,6 +117,7 @@ export type RoomParticipant = {
   isProtected: boolean;
   answerTime?: number; // Last answer time
   lastAnswerIndex?: number; // Added to restore answer on refresh
+  lastAnsweredQuestionIndex?: number; // Added to prevent multiple answers
 };
 
 export type RoomQuestion = {

@@ -7,6 +7,7 @@ import { useRoom } from '../context/RoomContext';
 import { QuizService } from '../services/QuizService';
 import { useAuth } from '../context/AuthContext';
 import { useCatalog } from '../context/CatalogContext';
+import { RoomService } from '../services/RoomService';
 import HostHeader from '../components/host/HostHeader';
 import HostGameArea from '../components/host/HostGameArea';
 import HostPlayerList from '../components/host/HostPlayerList';
@@ -67,11 +68,7 @@ export default function HostDashboard() {
 
   const handleStart = async () => {
     if (!id) return;
-    const roomRef = doc(db, 'rooms', id);
-    await updateDoc(roomRef, { 
-        status: 'active',
-        questionStartTime: Date.now()
-    });
+    await RoomService.startQuiz(id);
   };
 
   const handleNext = async () => {
