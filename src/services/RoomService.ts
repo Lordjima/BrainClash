@@ -153,6 +153,13 @@ export const RoomService = {
     const roomSnap = await getDoc(roomRef);
     if (!roomSnap.exists()) return;
     const room = roomSnap.data() as Room;
+    
+    // Check if player already answered
+    const playerRef = doc(db, `rooms/${roomCode}/players`, user.uid);
+    const playerSnap = await getDoc(playerRef);
+    if (!playerSnap.exists()) return;
+    const player = playerSnap.data() as RoomParticipant;
+    if (player.hasAnswered) return;
 
     const questionRef = doc(db, `rooms/${roomCode}/questions`, questionIndex.toString());
     const questionSnap = await getDoc(questionRef);
@@ -172,13 +179,13 @@ export const RoomService = {
 
     try {
       // 1. Update player
-      const playerRef = doc(db, `rooms/${roomCode}/players`, user.uid);
       await updateDoc(playerRef, {
         hasAnswered: true,
         isCorrect: isCorrect,
         score: increment(points),
         streak: isCorrect ? increment(1) : 0,
-        answerTime: Date.now()
+        answerTime: Date.now(),
+        lastAnswerIndex: answerIndex
       });
 
       // 2. Record answer
@@ -220,7 +227,7 @@ export const RoomService = {
     const batch = writeBatch(db);
     
     playersSnap.docs.forEach(d => {
-      batch.update(d.ref, { hasAnswered: false, isCorrect: null });
+      batch.update(d.ref, { hasAnswered: false, isCorrect: null, lastAnswerIndex: null });
     });
 
     batch.update(roomRef, {

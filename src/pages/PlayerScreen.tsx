@@ -48,7 +48,9 @@ export default function PlayerScreen() {
       navigate('/');
     } else if (room.status === 'active' && !room.showAnswer) {
       const me = userId ? room.players[userId] : null;
-      if (me && !me.hasAnswered) {
+      if (me && me.hasAnswered && me.lastAnswerIndex !== undefined) {
+        setSelectedAnswer(me.lastAnswerIndex);
+      } else if (me && !me.hasAnswered) {
         setSelectedAnswer(null);
       }
     }

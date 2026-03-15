@@ -116,6 +116,7 @@ export type RoomParticipant = {
   isCorrect: boolean | null;
   isProtected: boolean;
   answerTime?: number; // Last answer time
+  lastAnswerIndex?: number; // Added to restore answer on refresh
 };
 
 export type RoomQuestion = {
