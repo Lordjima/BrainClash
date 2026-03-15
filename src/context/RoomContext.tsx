@@ -6,8 +6,21 @@ import { Room, RoomParticipant, RoomQuestion, RoomEffectDoc } from '../types';
 const RoomContext = createContext<{ room: Room | null; loading: boolean } | null>(null);
 
 export const RoomProvider = ({ roomId, children }: { roomId: string; children: React.ReactNode }) => {
-  const [room, setRoom] = useState<Room | null>(null);
+  const [roomDoc, setRoomDoc] = useState<Room | null>(null);
+  const [players, setPlayers] = useState<Record<string, RoomParticipant>>({});
+  const [questions, setQuestions] = useState<RoomQuestion[]>([]);
+  const [activeEffects, setActiveEffects] = useState<RoomEffectDoc[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const room = React.useMemo(() => {
+    if (!roomDoc) return null;
+    return {
+      ...roomDoc,
+      players,
+      questions,
+      activeEffects
+    };
+  }, [roomDoc, players, questions, activeEffects]);
 
   useEffect(() => {
     if (!roomId) return;
@@ -19,7 +32,7 @@ export const RoomProvider = ({ roomId, children }: { roomId: string; children: R
 
     const unsubRoom = onSnapshot(roomRef, (doc) => {
       if (doc.exists()) {
-        setRoom(prev => ({ ...prev, ...doc.data() } as Room));
+        setRoomDoc(doc.data() as Room);
       }
     });
 
@@ -28,7 +41,7 @@ export const RoomProvider = ({ roomId, children }: { roomId: string; children: R
       snapshot.docs.forEach(doc => {
         players[doc.id] = doc.data() as RoomParticipant;
       });
-      setRoom(prev => prev ? ({ ...prev, players } as Room) : null);
+      setPlayers(players);
     });
 
     const unsubQuestions = onSnapshot(questionsRef, (snapshot) => {
@@ -37,7 +50,7 @@ export const RoomProvider = ({ roomId, children }: { roomId: string; children: R
         questions.push(doc.data() as RoomQuestion);
       });
       questions.sort((a, b) => a.index - b.index);
-      setRoom(prev => prev ? ({ ...prev, questions } as Room) : null);
+      setQuestions(questions);
     });
 
     const unsubEffects = onSnapshot(effectsRef, (snapshot) => {
@@ -45,7 +58,7 @@ export const RoomProvider = ({ roomId, children }: { roomId: string; children: R
       snapshot.docs.forEach(doc => {
         activeEffects.push({ id: doc.id, ...doc.data() } as RoomEffectDoc);
       });
-      setRoom(prev => prev ? ({ ...prev, activeEffects } as Room) : null);
+      setActiveEffects(activeEffects);
     });
 
     setLoading(false);

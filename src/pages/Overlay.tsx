@@ -5,7 +5,9 @@ import confetti from 'canvas-confetti';
 import { useRoom } from '../context/RoomContext';
 import Logo from '../components/ui/Logo';
 import { QuizService } from '../services/QuizService';
-import { updateDoc } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { Player } from '../types';
 
 export default function Overlay() {
   const { id } = useParams<{ id: string }>();

@@ -54,6 +54,10 @@ export default function CreateQuiz() {
 
   const createRoom = async (quizData: { timeLimit: number, questionCount: number, selectedThemes: string[], name: string, description: string }) => {
     try {
+      if (quizData.selectedThemes.length === 0) {
+        throw new Error("Veuillez sélectionner au moins un thème.");
+      }
+
       let allQuestions: Question[] = [];
       
       // Fetch questions for each selected theme
@@ -71,17 +75,25 @@ export default function CreateQuiz() {
       // Limit questions
       const finalQuestions = allQuestions.slice(0, quizData.questionCount);
 
+      if (finalQuestions.length === 0) {
+        throw new Error("Aucune question disponible pour les thèmes sélectionnés.");
+      }
+      if (finalQuestions.length < quizData.questionCount) {
+        throw new Error(`Pas assez de questions pour lancer ce quiz (disponibles: ${finalQuestions.length}, demandées: ${quizData.questionCount}).`);
+      }
+
       const code = await QuizService.createRoom({
         name: quizData.name,
         description: quizData.description,
-        theme: quizData.selectedThemes.join(', '),
+        themeIds: quizData.selectedThemes,
         timeLimit: quizData.timeLimit,
-        questions: finalQuestions.length > 0 ? finalQuestions : []
+        questions: finalQuestions
       });
       
       navigate(`/host/${code}`);
     } catch (err) {
       console.error('Error creating room:', err);
+      alert(err instanceof Error ? err.message : "Une erreur est survenue lors de la création du quiz.");
     }
   };
 
@@ -93,7 +105,7 @@ export default function CreateQuiz() {
       id: Date.now().toString(),
       name,
       description,
-      theme: selectedThemes[0], // For backward compatibility in history
+      themeIds: selectedThemes,
       timeLimit,
       questionCount,
       createdAt: Date.now(),
@@ -110,7 +122,7 @@ export default function CreateQuiz() {
     createRoom({ 
       timeLimit: quiz.timeLimit,
       questionCount: quiz.questionCount || 10,
-      selectedThemes: [quiz.theme],
+      selectedThemes: quiz.themeIds,
       name: quiz.name,
       description: quiz.description
     });

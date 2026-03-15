@@ -33,7 +33,7 @@ export const RoomService = {
   async createRoom(quizData: { 
     name: string, 
     description: string, 
-    theme: string, 
+    themeIds: string[], 
     timeLimit: number,
     questions: Question[]
   }): Promise<string> {
@@ -48,7 +48,7 @@ export const RoomService = {
   async createRoomWithCode(roomCode: string, quizData: {
     name: string,
     description: string,
-    theme: string,
+    themeIds: string[],
     timeLimit: number,
     questions: Question[]
   }): Promise<void> {
@@ -58,7 +58,7 @@ export const RoomService = {
       id: roomCode,
       name: quizData.name,
       description: quizData.description,
-      themeId: quizData.theme,
+      themeIds: quizData.themeIds,
       timeLimit: quizData.timeLimit,
       hostUid: auth.currentUser?.uid || 'anonymous',
       status: 'lobby',
@@ -244,11 +244,11 @@ export const RoomService = {
     const effectsRef = collection(db, `rooms/${roomCode}/effects`);
     const effect: Omit<RoomEffectDoc, 'id'> = {
       type,
-      sourceUid: user.uid,
+      sourceId: user.uid,
       sourceName,
-      targetUid: null,
+      targetId: null,
       createdAt: Date.now(),
-      expiresAt: Date.now() + duration
+      duration: duration
     };
 
     try {

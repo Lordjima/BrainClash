@@ -87,7 +87,7 @@ export type Room = {
   hostUid: string;
   name: string;
   description: string;
-  themeId: string | null;
+  themeIds: string[];
   status: 'lobby' | 'active' | 'finished' | 'closed';
   currentQuestionIndex: number;
   questionStartTime: number | null;
@@ -143,11 +143,11 @@ export type RoomAnswer = {
 export type RoomEffectDoc = {
   id: string;
   type: string;
-  sourceUid: string;
+  sourceId: string;
   sourceName: string;
-  targetUid: string | null;
+  targetId: string | null;
   createdAt: number;
-  expiresAt: number | null;
+  duration: number;
 };
 
 // --- CATALOG TYPES ---
@@ -200,7 +200,7 @@ export type SavedQuiz = {
   id: string;
   name: string;
   description: string;
-  theme: string;
+  themeIds: string[];
   timeLimit: number;
   questionCount: number;
   createdAt: number;

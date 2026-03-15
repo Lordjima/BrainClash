@@ -113,7 +113,7 @@ export default function Home() {
             await QuizService.createRoomWithCode('JIMA', {
               name: "Salon de Jima",
               description: "Bienvenue dans l'arène officielle de JimaG4ming !",
-              theme: "general",
+              themeIds: ["general"],
               timeLimit: 15,
               questions: [
                 {

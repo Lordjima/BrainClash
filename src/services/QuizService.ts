@@ -28,7 +28,7 @@ export class QuizService {
   static async createRoom(quizData: { 
     name: string, 
     description: string, 
-    theme: string, 
+    themeIds: string[], 
     timeLimit: number,
     questions: Question[]
   }): Promise<string> {
@@ -164,7 +164,7 @@ export class QuizService {
   static async createRoomWithCode(roomCode: string, quizData: {
     name: string,
     description: string,
-    theme: string,
+    themeIds: string[],
     timeLimit: number,
     questions: Question[]
   }): Promise<void> {

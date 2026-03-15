@@ -7,7 +7,7 @@ import { useCatalog } from '../context/CatalogContext';
 import { QuizService } from '../services/QuizService';
 import { PageLayout } from '../components/ui/PageLayout';
 import { motion, AnimatePresence } from 'motion/react';
-import type { GlobalLeaderboardEntry } from '../types';
+import type { GlobalLeaderboardEntry, Player } from '../types';
 import * as LucideIcons from 'lucide-react';
 
 // Extracted Components

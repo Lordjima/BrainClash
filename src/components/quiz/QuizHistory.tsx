@@ -42,7 +42,7 @@ export default function QuizHistory({
             
             <div className="flex items-center gap-3 text-xs font-mono">
               <Badge variant="fuchsia">
-                {themes[quiz.theme]?.name || quiz.theme}
+                {quiz.themeIds.map(id => themes[id]?.name || id).join(', ')}
               </Badge>
               <Badge variant="zinc">
                 {quiz.timeLimit}s

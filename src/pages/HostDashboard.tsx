@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { Player } from '../types';
 import { useRoom } from '../context/RoomContext';
 import { QuizService } from '../services/QuizService';
 import { useAuth } from '../context/AuthContext';

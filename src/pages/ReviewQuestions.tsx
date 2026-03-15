@@ -38,7 +38,16 @@ export default function ReviewQuestions() {
       // Add to approved questions collection
       const question = questions.find(q => q.id === id);
       if (question) {
-        await addDoc(collection(db, 'questionBank'), { ...question, approvedBy: user.displayName || 'Admin' });
+        await addDoc(collection(db, 'questionBank'), {
+          text: question.text,
+          options: question.options,
+          correctOptionIndex: question.correctOptionIndex,
+          theme: question.theme,
+          timeLimit: 15,
+          index: 0,
+          questionId: question.id,
+          approvedBy: user.displayName || 'Admin'
+        });
       }
     }
     
